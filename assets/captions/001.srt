@@ -1,29 +1,46 @@
 1
-00:00:00,000 --> 00:00:03,500
+00:00:00,000 --> 00:00:02,000
 The most used word on Earth
-was invented as a joke.
 
 2
-00:00:03,500 --> 00:00:08,500
-In the 1830s, Boston newspaper writers
-had a trend of abbreviating misspelled phrases.
+00:00:02,000 --> 00:00:03,500
+was invented as a joke.
 
 3
-00:00:08,500 --> 00:00:13,500
-OK stood for "oll korrect" —
-a playful misspelling of "all correct."
+00:00:03,500 --> 00:00:06,000
+In the 1830s, Boston writers
 
 4
-00:00:13,500 --> 00:00:19,000
-It started as slang, spread through
-telegraph operators who loved its brevity,
+00:00:06,000 --> 00:00:08,500
+abbreviated misspelled phrases.
 
 5
-00:00:19,000 --> 00:00:23,000
-and now it's understood
-in virtually every language.
+00:00:08,500 --> 00:00:11,000
+OK stood for "oll korrect" —
 
 6
+00:00:11,000 --> 00:00:13,500
+a playful misspelling
+of "all correct."
+
+7
+00:00:13,500 --> 00:00:16,500
+It started as slang,
+
+8
+00:00:16,500 --> 00:00:19,000
+spread through telegraph operators,
+
+9
+00:00:19,000 --> 00:00:21,000
+who loved its brevity.
+
+10
+00:00:21,000 --> 00:00:23,000
+Now it's understood
+in virtually every language.
+
+11
 00:00:23,500 --> 00:00:27,000
 Follow for more language secrets
 hiding in plain sight.

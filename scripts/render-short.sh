@@ -77,7 +77,7 @@ MAIN_CMD=(
   "$FFMPEG_BIN" -y
   -loop 1 -i "$BACKGROUND"
   -i "$AUDIO"
-  -vf "scale=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,pad=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2,subtitles=${SUBTITLES_ESCAPED}:force_style='FontSize=${FONT_SIZE},FontName=DejaVu Sans Bold,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=3,Outline=2,Shadow=0,MarginV=120,Alignment=2,BackColour=&H80000000'"
+  -vf "scale=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:force_original_aspect_ratio=decrease,pad=${VIDEO_WIDTH}:${VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2,subtitles=${SUBTITLES_ESCAPED}:force_style='FontSize=14,FontName=DejaVu Sans Bold,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=3,Outline=1,Shadow=0,MarginL=40,MarginR=40,MarginV=80,Alignment=2,BackColour=&H80000000,WrapStyle=1'"
   -c:v libx264 -preset medium -crf "$VIDEO_CRF" -tune stillimage
   -c:a aac -b:a 128k
   -r "$VIDEO_FPS"
