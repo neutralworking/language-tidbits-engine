@@ -1,0 +1,29 @@
+# Environment
+.env
+
+# Output files (large binaries)
+data/output/*.mp4
+data/output/*.mkv
+
+# Generated audio
+assets/audio/*.wav
+assets/audio/*.mp3
+
+# Generated captions
+assets/captions/*.srt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+
+# Temp files
+*.tmp
+*.swp
+*~
+
+# n8n local data (if running from repo dir)
+.n8n/

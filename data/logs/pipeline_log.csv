@@ -1,0 +1,10 @@
+id,topic_id,stage,status,message,started_at,completed_at,duration_ms
+1,1,load_topic,completed,Loaded topic: Origin of the word OK,2026-04-09T10:00:00Z,2026-04-09T10:00:01Z,1200
+2,1,expand_topic,completed,Topic expanded successfully,2026-04-09T10:00:01Z,2026-04-09T10:00:04Z,2800
+3,1,generate_script,completed,Script generated: 62 words / 28s estimated,2026-04-09T10:00:04Z,2026-04-09T10:00:08Z,3500
+4,1,fact_check,completed,Fact check passed: confidence=high,2026-04-09T10:00:08Z,2026-04-09T10:00:11Z,2900
+5,1,generate_metadata,completed,Metadata generated,2026-04-09T10:00:11Z,2026-04-09T10:00:14Z,2700
+6,1,generate_visual_brief,completed,Visual brief generated,2026-04-09T10:00:14Z,2026-04-09T10:00:17Z,2500
+7,1,generate_tts,completed,Voiceover generated: assets/audio/001_voiceover.wav,2026-04-09T10:00:17Z,2026-04-09T10:00:25Z,8200
+8,1,render_video,completed,Video rendered: data/output/001_origin_of_ok.mp4,2026-04-09T10:00:25Z,2026-04-09T10:00:38Z,12800
+9,1,save_metadata,completed,Output metadata saved,2026-04-09T10:00:38Z,2026-04-09T10:00:39Z,800

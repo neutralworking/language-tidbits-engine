@@ -1,0 +1,54 @@
+{
+  "topic_id": "001",
+  "original_topic": "Origin of the word OK",
+  "expanded_topic": {
+    "expanded_topic": "The surprising origin of the word OK",
+    "angle": "Historical etymology with a surprising twist",
+    "target_audience": "General audience, language enthusiasts",
+    "hook_idea": "The most spoken word on Earth was invented as a joke",
+    "key_fact": "OK originated as a humorous abbreviation of 'oll korrect' in 1830s Boston newspapers",
+    "source_hint": "Boston Morning Post, 1839"
+  },
+  "script": {
+    "hook": "The most used word on Earth was invented as a joke.",
+    "fact": "In the 1830s, Boston newspaper writers had a trend of abbreviating misspelled phrases. OK stood for 'oll korrect' — a playful misspelling of 'all correct.'",
+    "example": "It started as slang, spread through telegraph operators who loved its brevity, and now it's understood in virtually every language.",
+    "cta": "Follow for more language secrets hiding in plain sight.",
+    "full_script": "The most used word on Earth was invented as a joke. In the 1830s, Boston newspaper writers had a trend of abbreviating misspelled phrases. OK stood for 'oll korrect' — a playful misspelling of 'all correct.' It started as slang, spread through telegraph operators who loved its brevity, and now it's understood in virtually every language. Follow for more language secrets hiding in plain sight.",
+    "estimated_duration_seconds": 28,
+    "word_count": 62
+  },
+  "fact_check": {
+    "is_safe": true,
+    "confidence": "high",
+    "concerns": "None significant. The OK origin from 'oll korrect' is well-documented by Allen Walker Read.",
+    "suggestion": "",
+    "risk_level": "low",
+    "common_myth_check": "This is not a common myth — it's the accepted etymology."
+  },
+  "metadata": {
+    "youtube_title": "This word was invented as a JOKE 🤯 #shorts",
+    "youtube_description": "The word OK has the wildest origin story. It started as 1830s newspaper slang and became the most understood word on Earth. #languagefacts #etymology #wordorigins",
+    "tiktok_caption": "The most used word on Earth started as a newspaper joke 🤯 #languagefacts #etymology #english",
+    "tags": ["language facts", "etymology", "word origins", "OK origin", "english language", "linguistics", "fun facts"],
+    "category": "Education"
+  },
+  "visual_brief": {
+    "background_color": "#1a1a2e",
+    "background_style": "dark gradient with subtle texture",
+    "text_color": "#ffffff",
+    "accent_color": "#e94560",
+    "mood": "intriguing",
+    "title_card_text": "OK was invented as a joke",
+    "font_suggestion": "Bold sans-serif (Montserrat Bold)",
+    "overlay_elements": []
+  },
+  "render": {
+    "background_path": "assets/backgrounds/default.png",
+    "audio_path": "assets/audio/001_voiceover.wav",
+    "subtitles_path": "assets/captions/001.srt",
+    "output_path": "data/output/001_origin_of_the_word_ok.mp4"
+  },
+  "status": "ready_for_review",
+  "generated_at": "2026-04-09T10:00:39Z"
+}

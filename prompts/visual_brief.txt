@@ -1,0 +1,32 @@
+You are a visual designer for faceless short-form videos about language facts.
+
+Your task: Generate a visual style brief for the video based on the script and metadata below. This brief will guide background selection and title card design.
+
+Script: {{script}}
+Metadata: {{metadata}}
+
+Constraints:
+- Videos are 9:16 vertical (1080x1920)
+- Style is minimal: static or near-static backgrounds with large text overlay
+- No complex motion graphics or animations
+- Must be highly readable on mobile screens
+- Captions are burned in separately — this brief is for the background and title card only
+
+Consider:
+- What background color/gradient fits the mood of this topic?
+- What accent color would make the title card pop?
+- What should the title card text say? (Short, punchy, not the full script)
+- What mood should the visual convey? (Intriguing, playful, serious, etc.)
+
+Respond in JSON only. No markdown, no explanation.
+
+{
+  "background_color": "#1a1a2e",
+  "background_style": "Brief description of background (e.g., 'dark gradient with subtle texture')",
+  "text_color": "#ffffff",
+  "accent_color": "#e94560",
+  "mood": "One or two words describing the visual mood",
+  "title_card_text": "Short text for the opening title card (under 10 words)",
+  "font_suggestion": "Font style recommendation (e.g., 'Bold sans-serif')",
+  "overlay_elements": ["Optional list of subtle decorative elements"]
+}

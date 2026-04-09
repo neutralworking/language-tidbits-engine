@@ -1,0 +1,587 @@
+{
+  "name": "v1-language-tidbits",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "range": "",
+        "options": {
+          "filters": {
+            "column": "status",
+            "value": "pending"
+          }
+        }
+      },
+      "id": "load-topic",
+      "name": "Load Next Topic",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [220, 0],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PLACEHOLDER",
+          "name": "Google Sheets OAuth2"
+        }
+      },
+      "notes": "TODO: Configure sheetId and range after importing. Filter for first row where status=pending. If using Baserow, replace this node with an HTTP Request node."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.id !== undefined }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-topic-exists",
+      "name": "Topic Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LLM_API_URL }}/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "={{ $env.LLM_MODEL }}"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"user\", \"content\": \"You are a content researcher for a short-form video channel about interesting language facts.\\n\\nYour task: Take a raw topic idea and expand it into a structured brief.\\n\\nTopic idea: {{ $json.topic }}\\n\\nRespond in JSON only.\\n\\n{\\n  \\\"expanded_topic\\\": \\\"\\\",\\n  \\\"angle\\\": \\\"\\\",\\n  \\\"target_audience\\\": \\\"\\\",\\n  \\\"hook_idea\\\": \\\"\\\",\\n  \\\"key_fact\\\": \\\"\\\",\\n  \\\"source_hint\\\": \\\"\\\"\\n}\"}]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "expand-topic",
+      "name": "Expand Topic (LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [660, -100],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PLACEHOLDER",
+          "name": "LLM API Key"
+        }
+      },
+      "notes": "Calls LLM API with topic_expander prompt. Uses OpenAI-compatible /chat/completions endpoint. Full prompt is in prompts/topic_expander.txt — this node inlines a condensed version."
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = JSON.parse($input.first().json.choices[0].message.content);\nreturn [{ json: { ...response, topic_id: $('Load Next Topic').first().json.id, original_topic: $('Load Next Topic').first().json.topic } }];"
+      },
+      "id": "parse-expanded-topic",
+      "name": "Parse Expanded Topic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, -100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LLM_API_URL }}/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "={{ $env.LLM_MODEL }}"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"user\", \"content\": \"You are a scriptwriter for faceless short-form videos about language facts.\\n\\nExpanded topic: {{ JSON.stringify($json) }}\\n\\nWrite a script with: hook, fact, example, cta. Total 40-80 words. Respond in JSON only.\\n\\n{\\n  \\\"hook\\\": \\\"\\\",\\n  \\\"fact\\\": \\\"\\\",\\n  \\\"example\\\": \\\"\\\",\\n  \\\"cta\\\": \\\"\\\",\\n  \\\"full_script\\\": \\\"\\\",\\n  \\\"estimated_duration_seconds\\\": 0,\\n  \\\"word_count\\\": 0\\n}\"}]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "generate-script",
+      "name": "Generate Script (LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1100, -100],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PLACEHOLDER",
+          "name": "LLM API Key"
+        }
+      },
+      "notes": "Calls LLM API with short_script prompt. Full prompt is in prompts/short_script.txt."
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = JSON.parse($input.first().json.choices[0].message.content);\nconst prev = $('Parse Expanded Topic').first().json;\nreturn [{ json: { ...prev, script: response } }];"
+      },
+      "id": "parse-script",
+      "name": "Parse Script",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, -100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LLM_API_URL }}/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "={{ $env.LLM_MODEL }}"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"user\", \"content\": \"You are a fact-checker for language content.\\n\\nFact: {{ $json.script.fact }}\\nExample: {{ $json.script.example }}\\nSource hint: {{ $json.source_hint }}\\n\\nRespond in JSON only.\\n\\n{\\n  \\\"is_safe\\\": true,\\n  \\\"confidence\\\": \\\"high\\\",\\n  \\\"concerns\\\": \\\"\\\",\\n  \\\"suggestion\\\": \\\"\\\",\\n  \\\"risk_level\\\": \\\"low\\\",\\n  \\\"common_myth_check\\\": \\\"\\\"\\n}\"}]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fact-check",
+      "name": "Fact Safety Check (LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1540, -100],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PLACEHOLDER",
+          "name": "LLM API Key"
+        }
+      },
+      "notes": "Calls LLM API with fact_safety_check prompt. Full prompt is in prompts/fact_safety_check.txt."
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = JSON.parse($input.first().json.choices[0].message.content);\nconst prev = $('Parse Script').first().json;\nreturn [{ json: { ...prev, fact_check: response } }];"
+      },
+      "id": "parse-fact-check",
+      "name": "Parse Fact Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, -100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.fact_check.is_safe === true && $json.fact_check.confidence !== 'low' }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "fact-check-gate",
+      "name": "Fact Check Passed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1980, -100],
+      "notes": "If fact check fails (is_safe=false or confidence=low), routes to error handler that marks topic as needs_review."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LLM_API_URL }}/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "={{ $env.LLM_MODEL }}"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"user\", \"content\": \"Generate metadata for this script: {{ JSON.stringify($json.script) }}\\n\\nRespond in JSON: {\\\"youtube_title\\\": \\\"\\\", \\\"youtube_description\\\": \\\"\\\", \\\"tiktok_caption\\\": \\\"\\\", \\\"tags\\\": [], \\\"category\\\": \\\"Education\\\"}\"}]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "generate-metadata",
+      "name": "Generate Metadata (LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2200, -200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PLACEHOLDER",
+          "name": "LLM API Key"
+        }
+      },
+      "notes": "Calls LLM API with metadata prompt. Full prompt is in prompts/metadata.txt."
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = JSON.parse($input.first().json.choices[0].message.content);\nconst prev = $('Parse Fact Check').first().json;\nreturn [{ json: { ...prev, metadata: response } }];"
+      },
+      "id": "parse-metadata",
+      "name": "Parse Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2420, -200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TTS_API_URL }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "input",
+              "value": "={{ $json.script.full_script }}"
+            },
+            {
+              "name": "voice",
+              "value": "={{ $env.TTS_VOICE }}"
+            },
+            {
+              "name": "model",
+              "value": "={{ $env.TTS_ENGINE }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "generate-tts",
+      "name": "Generate TTS Audio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2640, -200],
+      "notes": "TODO: Exact request format depends on TTS engine. Kokoro uses OpenAI-compatible endpoint. Chatterbox may differ. Response should be saved as WAV file to assets/audio/{topic_id}_voiceover.wav"
+    },
+    {
+      "parameters": {
+        "jsCode": "const topicId = String($('Parse Metadata').first().json.topic_id).padStart(3, '0');\nconst script = $('Parse Metadata').first().json.script;\nconst lines = [\n  { text: script.hook, start: 0, end: 4 },\n  { text: script.fact, start: 4, end: 18 },\n  { text: script.example, start: 18, end: 28 },\n  { text: script.cta, start: 28, end: 33 }\n];\n\nlet srt = '';\nlines.forEach((line, i) => {\n  const startH = String(Math.floor(line.start / 3600)).padStart(2, '0');\n  const startM = String(Math.floor((line.start % 3600) / 60)).padStart(2, '0');\n  const startS = String(line.start % 60).padStart(2, '0');\n  const endH = String(Math.floor(line.end / 3600)).padStart(2, '0');\n  const endM = String(Math.floor((line.end % 3600) / 60)).padStart(2, '0');\n  const endS = String(line.end % 60).padStart(2, '0');\n  srt += `${i + 1}\\n${startH}:${startM}:${startS},000 --> ${endH}:${endM}:${endS},000\\n${line.text}\\n\\n`;\n});\n\nreturn [{\n  json: {\n    topic_id: topicId,\n    srt_content: srt,\n    background_path: 'assets/backgrounds/default.png',\n    audio_path: `assets/audio/${topicId}_voiceover.wav`,\n    subtitles_path: `assets/captions/${topicId}.srt`,\n    output_path: `data/output/${topicId}_${$('Parse Metadata').first().json.original_topic.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.mp4`,\n    title_text: $('Parse Metadata').first().json.metadata.youtube_title.replace(' #shorts', '')\n  }\n}];"
+      },
+      "id": "prepare-render-assets",
+      "name": "Prepare Render Assets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2860, -200],
+      "notes": "Generates SRT subtitle file content and resolves all file paths for the render step. TODO: SRT timings are estimated — improve with audio duration detection in v2."
+    },
+    {
+      "parameters": {
+        "command": "={{ './scripts/render-short.sh --background ' + $json.background_path + ' --audio ' + $json.audio_path + ' --subtitles ' + $json.subtitles_path + ' --title \"' + $json.title_text + '\" --output ' + $json.output_path }}"
+      },
+      "id": "render-video",
+      "name": "Render Video (FFmpeg)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [3080, -200],
+      "notes": "Calls the render-short.sh script. Ensure scripts/ has execute permissions. Working directory should be the repo root."
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date().toISOString();\nconst prev = $('Parse Metadata').first().json;\nconst render = $('Prepare Render Assets').first().json;\n\nconst csvRow = [\n  prev.topic_id,\n  prev.topic_id,\n  prev.original_topic,\n  render.output_path,\n  prev.script.estimated_duration_seconds,\n  prev.script.word_count,\n  prev.metadata.youtube_title,\n  prev.metadata.tiktok_caption,\n  prev.metadata.tags.join(';'),\n  'ready_for_review',\n  now,\n  '',\n  '',\n  ''\n].join(',');\n\nreturn [{ json: { csv_row: csvRow, topic_id: prev.topic_id, status: 'ready_for_review' } }];"
+      },
+      "id": "save-output-metadata",
+      "name": "Save Output Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3300, -200],
+      "notes": "Formats output metadata as CSV row. TODO: In production, append to generated_videos.csv via Write File node or update Google Sheet."
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "sheetId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "range": "",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "ready_for_review",
+            "processed_at": "={{ new Date().toISOString() }}"
+          }
+        }
+      },
+      "id": "update-topic-status",
+      "name": "Mark Ready for Review",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [3520, -200],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "PLACEHOLDER",
+          "name": "Google Sheets OAuth2"
+        }
+      },
+      "notes": "TODO: Configure sheetId and row matching. Should update the original topic row status to ready_for_review."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fact check failed — mark topic for human review\nconst topicId = $('Parse Fact Check').first().json.topic_id;\nreturn [{ json: { topic_id: topicId, status: 'needs_review', reason: 'Fact check failed or low confidence' } }];"
+      },
+      "id": "handle-fact-check-fail",
+      "name": "Handle Fact Check Failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2200, 100],
+      "notes": "Routes here when fact check fails. Should update sheet status to needs_review."
+    },
+    {
+      "parameters": {
+        "message": "No pending topics found in the content queue.",
+        "type": "info"
+      },
+      "id": "no-topics",
+      "name": "No Pending Topics",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [660, 100],
+      "notes": "Workflow ends here if no pending topics found."
+    },
+    {
+      "parameters": {
+        "content": "## v1 Language Tidbits Workflow\n\nLinear pipeline: Load topic → Expand → Script → Fact Check → Metadata → TTS → Render → Save\n\nPublishing is manual in v1.\n\nSee docs/workflow-spec.md for full documentation.\n\nCredential placeholders need to be replaced after import.\nSee n8n/credentials-schema.md for required credentials."
+      },
+      "id": "sticky-note-info",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, -300],
+      "parameters": {
+        "width": 400,
+        "height": 200
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Load Next Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Next Topic": {
+      "main": [
+        [
+          {
+            "node": "Topic Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Topic Found?": {
+      "main": [
+        [
+          {
+            "node": "Expand Topic (LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Pending Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Topic (LLM)": {
+      "main": [
+        [
+          {
+            "node": "Parse Expanded Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Expanded Topic": {
+      "main": [
+        [
+          {
+            "node": "Generate Script (LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Script (LLM)": {
+      "main": [
+        [
+          {
+            "node": "Parse Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Script": {
+      "main": [
+        [
+          {
+            "node": "Fact Safety Check (LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fact Safety Check (LLM)": {
+      "main": [
+        [
+          {
+            "node": "Parse Fact Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Fact Check": {
+      "main": [
+        [
+          {
+            "node": "Fact Check Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fact Check Passed?": {
+      "main": [
+        [
+          {
+            "node": "Generate Metadata (LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Fact Check Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Metadata (LLM)": {
+      "main": [
+        [
+          {
+            "node": "Parse Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Metadata": {
+      "main": [
+        [
+          {
+            "node": "Generate TTS Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate TTS Audio": {
+      "main": [
+        [
+          {
+            "node": "Prepare Render Assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Render Assets": {
+      "main": [
+        [
+          {
+            "node": "Render Video (FFmpeg)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render Video (FFmpeg)": {
+      "main": [
+        [
+          {
+            "node": "Save Output Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Output Metadata": {
+      "main": [
+        [
+          {
+            "node": "Mark Ready for Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "placeholder"
+  }
+}
