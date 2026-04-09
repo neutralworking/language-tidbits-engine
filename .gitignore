@@ -9,8 +9,9 @@ data/output/*.mkv
 assets/audio/*.wav
 assets/audio/*.mp3
 
-# Generated captions
+# Generated captions (keep sample 001.srt)
 assets/captions/*.srt
+!assets/captions/001.srt
 
 # OS files
 .DS_Store
@@ -27,3 +28,6 @@ __pycache__/
 
 # n8n local data (if running from repo dir)
 .n8n/
+
+# Docker volumes
+docker-data/

@@ -97,13 +97,32 @@ All components run on one Linux machine:
 | Orshot (optional) | 3000 | HTTP |
 | Baserow (optional) | 8000 | HTTP |
 
+## Deployment
+
+Services are defined in `docker-compose.yml` at the repo root:
+
+| Service | Image | Purpose |
+|---------|-------|---------|
+| n8n | `n8nio/n8n:latest` | Workflow orchestration |
+| kokoro-tts | `ghcr.io/remsky/kokoro-fastapi:latest` | Local TTS |
+
+```bash
+# Start everything
+docker compose up -d
+
+# Check status
+docker compose ps
+```
+
+n8n data and Kokoro models are stored in named Docker volumes (`n8n_data`, `kokoro_models`).
+
 ## File system layout
 
 ```
 /home/operator/language-tidbits-engine/    # This repo
-/home/operator/tts-server/                  # TTS engine (separate install)
-/home/operator/n8n-data/                    # n8n Docker volume (persistent)
 ```
+
+All services run in Docker — no separate installs needed beyond what `scripts/setup.sh` provides.
 
 ## Security notes
 

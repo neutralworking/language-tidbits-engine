@@ -35,36 +35,33 @@ A single-operator pipeline that takes a language tidbit idea, expands it into a 
 git clone https://github.com/neutralworking/language-tidbits-engine.git
 cd language-tidbits-engine
 
-# Copy environment config
-cp .env.example .env
+# Run the setup script (installs FFmpeg, Docker, fonts, creates .env)
+sudo ./scripts/setup.sh
+
 # Edit .env with your actual values
+nano .env
 
-# Make scripts executable
-chmod +x scripts/*.sh
-
-# Validate your setup
-./scripts/validate-assets.sh
+# Start n8n + Kokoro TTS
+docker compose up -d
 
 # Import the n8n workflow
-# Open n8n UI → Workflows → Import from File → select n8n/workflows/v1-language-tidbits-workflow.json
+# Open n8n UI at http://localhost:5678
+# Workflows → Import from File → select n8n/workflows/v1-language-tidbits-workflow.json
 ```
 
 ### Running a test render
 
 ```bash
-# Using the shell script
+# Quick test — generates synthetic audio and renders a sample video
+./scripts/test-render.sh
+
+# Manual render with real assets
 ./scripts/render-short.sh \
   --background assets/backgrounds/default.png \
-  --audio /path/to/voiceover.wav \
-  --subtitles /path/to/captions.srt \
-  --output data/output/test-video.mp4
-
-# Using the Python script
-python3 scripts/render-short.py \
-  --background assets/backgrounds/default.png \
-  --audio /path/to/voiceover.wav \
-  --subtitles /path/to/captions.srt \
-  --output data/output/test-video.mp4
+  --audio assets/audio/001_voiceover.wav \
+  --subtitles assets/captions/001.srt \
+  --output data/output/001_video.mp4 \
+  --title "OK was invented as a joke"
 ```
 
 ## v1 workflow
@@ -86,6 +83,7 @@ python3 scripts/render-short.py \
 ├── README.md              # This file
 ├── CLAUDE.md              # Rules for Claude Code sessions
 ├── .env.example           # Environment variable template
+├── docker-compose.yml     # n8n + Kokoro TTS services
 ├── docs/                  # Architecture and workflow documentation
 ├── prompts/               # LLM prompt templates
 ├── data/
@@ -95,7 +93,12 @@ python3 scripts/render-short.py \
 ├── n8n/
 │   ├── workflows/         # Importable n8n workflow JSON
 │   └── samples/           # Sample input/output for testing
-├── scripts/               # FFmpeg render and validation scripts
+├── scripts/
+│   ├── setup.sh           # One-command Ubuntu dependency install
+│   ├── test-render.sh     # End-to-end render test with sample assets
+│   ├── render-short.sh    # FFmpeg render (bash)
+│   ├── render-short.py    # FFmpeg render (python)
+│   └── validate-assets.sh # Pre-render checks
 └── assets/                # Overlays, backgrounds, audio, captions
 ```
 

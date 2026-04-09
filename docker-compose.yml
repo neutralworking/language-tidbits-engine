@@ -1,0 +1,57 @@
+# docker-compose.yml — language-tidbits-engine services
+#
+# Starts n8n (orchestration) and Kokoro TTS (voiceover).
+#
+# Usage:
+#   docker compose up -d          # start services
+#   docker compose logs -f n8n    # watch n8n logs
+#   docker compose down           # stop services
+#
+# n8n UI: http://localhost:5678
+# TTS API: http://localhost:8880
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    environment:
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+      - WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:5678}
+      - GENERIC_TIMEZONE=UTC
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./prompts:/home/node/prompts:ro
+      - ./scripts:/home/node/scripts:ro
+      - ./assets:/home/node/assets
+      - ./data:/home/node/data
+
+  # Kokoro TTS — local text-to-speech with OpenAI-compatible API
+  # https://github.com/remsky/Kokoro-FastAPI
+  #
+  # TODO: Verify image tag and GPU config for your hardware.
+  # CPU-only mode works but is slower. For GPU, uncomment the deploy section.
+  kokoro-tts:
+    image: ghcr.io/remsky/kokoro-fastapi:latest
+    restart: unless-stopped
+    ports:
+      - "${TTS_PORT:-8880}:8880"
+    environment:
+      - DEVICE=cpu
+    volumes:
+      - kokoro_models:/app/models
+    # Uncomment below for GPU acceleration (requires nvidia-container-toolkit):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  n8n_data:
+  kokoro_models:
