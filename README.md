@@ -52,8 +52,11 @@ docker compose up -d
 ### Running a test render
 
 ```bash
-# Quick test — generates synthetic audio and renders a sample video
+# Quick test — uses real TTS if Kokoro is running, falls back to synthetic audio
 ./scripts/test-render.sh
+
+# Generate voiceover directly
+./scripts/tts.sh --text "The word OK was invented as a joke." --output assets/audio/001_voiceover.wav
 
 # Manual render with real assets
 ./scripts/render-short.sh \
@@ -95,7 +98,9 @@ docker compose up -d
 │   └── samples/           # Sample input/output for testing
 ├── scripts/
 │   ├── setup.sh           # One-command Ubuntu dependency install
-│   ├── test-render.sh     # End-to-end render test with sample assets
+│   ├── test-render.sh     # End-to-end render test (auto-detects TTS)
+│   ├── tts.sh             # TTS voiceover generation (bash)
+│   ├── tts.py             # TTS voiceover generation (python)
 │   ├── render-short.sh    # FFmpeg render (bash)
 │   ├── render-short.py    # FFmpeg render (python)
 │   └── validate-assets.sh # Pre-render checks

@@ -2,12 +2,14 @@
 #
 # test-render.sh — End-to-end render test using sample assets.
 #
-# Generates a synthetic voiceover (silent audio) and renders a test video
-# using the sample SRT and default background. Proves the FFmpeg pipeline
-# works without needing a real TTS engine.
+# Generates a voiceover and renders a test video using the sample SRT and
+# default background. Uses real TTS if Kokoro is running, otherwise falls
+# back to synthetic audio.
 #
 # Usage:
-#   ./scripts/test-render.sh
+#   ./scripts/test-render.sh            # auto-detect TTS
+#   ./scripts/test-render.sh --tts      # force real TTS (fail if unavailable)
+#   ./scripts/test-render.sh --no-tts   # force synthetic audio
 #
 # Output: data/output/test_001_origin_of_ok.mp4
 
@@ -19,8 +21,31 @@ cd "$REPO_DIR"
 BACKGROUND="assets/backgrounds/default.png"
 SUBTITLES="assets/captions/001.srt"
 OUTPUT="data/output/test_001_origin_of_ok.mp4"
-AUDIO="assets/audio/test_silent_28s.wav"
+AUDIO="assets/audio/test_voiceover.wav"
 FFMPEG_BIN="${FFMPEG_BIN:-ffmpeg}"
+
+# Load .env if present
+if [[ -f "$REPO_DIR/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$REPO_DIR/.env"
+  set +a
+fi
+
+TTS_API_URL="${TTS_API_URL:-http://localhost:8880/v1/audio/speech}"
+
+# --- Parse arguments ---
+TTS_MODE="auto"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --tts) TTS_MODE="force"; shift ;;
+    --no-tts) TTS_MODE="skip"; shift ;;
+    *) echo "Unknown argument: $1"; exit 1 ;;
+  esac
+done
+
+# Sample script text for TTS
+TEST_SCRIPT="Did you know the word OK was invented as a joke? In 1839, a Boston newspaper abbreviated 'all correct' as O.K. as a playful misspelling. It caught on, and now it's one of the most recognized words on the planet. What other words do you think started as jokes? Let us know in the comments."
 
 echo "=== Test render ==="
 echo ""
@@ -42,16 +67,35 @@ if [[ ! -f "$SUBTITLES" ]]; then
   exit 1
 fi
 
-# --- Generate synthetic audio (28s silent WAV with a tone at the start) ---
-# This simulates a voiceover so FFmpeg has an audio track to work with.
-echo "Generating synthetic test audio (28s)..."
-"$FFMPEG_BIN" -y \
-  -f lavfi -i "sine=frequency=440:duration=0.5" \
-  -f lavfi -i "anullsrc=r=24000:cl=mono" \
-  -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1[out]" \
-  -map "[out]" \
-  -t 28 \
-  "$AUDIO" 2>/dev/null
+# --- Generate audio ---
+USE_TTS=false
+
+if [[ "$TTS_MODE" == "force" ]]; then
+  USE_TTS=true
+elif [[ "$TTS_MODE" == "auto" ]]; then
+  # Check if TTS API is reachable
+  if curl -s --connect-timeout 2 --max-time 5 "$TTS_API_URL" >/dev/null 2>&1; then
+    USE_TTS=true
+    echo "TTS service detected at $TTS_API_URL"
+  else
+    echo "TTS service not available — using synthetic audio"
+  fi
+fi
+
+if [[ "$USE_TTS" == true ]]; then
+  echo "Generating voiceover via TTS..."
+  ./scripts/tts.sh --text "$TEST_SCRIPT" --output "$AUDIO"
+else
+  # Synthetic audio fallback (28s silent WAV with a tone at the start)
+  echo "Generating synthetic test audio (28s)..."
+  "$FFMPEG_BIN" -y \
+    -f lavfi -i "sine=frequency=440:duration=0.5" \
+    -f lavfi -i "anullsrc=r=24000:cl=mono" \
+    -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1[out]" \
+    -map "[out]" \
+    -t 28 \
+    "$AUDIO" 2>/dev/null
+fi
 
 echo "Test audio: $AUDIO"
 echo ""
