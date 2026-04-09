@@ -1,0 +1,103 @@
+{
+  "topic": {
+    "slug": "emoji-language",
+    "raw_topic": "How emoji became a universal language",
+    "category": "modern-language",
+    "channel": "language-tidbits"
+  },
+  "source_documents": [
+    {
+      "source_type": "wikipedia",
+      "source_id": "36527114",
+      "title": "Emoji",
+      "content_text": "Emoji are pictograms, logograms, ideograms, and smileys used in electronic messages and web pages. The emoji was created in 1999 by Japanese artist Shigetaka Kurita, who was working for the mobile carrier NTT DoCoMo. The word emoji comes from Japanese e (picture) + moji (character). It is a coincidence that it resembles the English words 'emotion' and 'emoticon'. The Unicode Consortium began incorporating emoji into the Unicode Standard in 2010. As of 2023, there are 3,782 emoji in the Unicode Standard.",
+      "metadata": { "doc_subtype": "summary" }
+    },
+    {
+      "source_type": "reddit_post",
+      "source_id": "def456",
+      "title": "Emoji has nothing to do with 'emotion' — it's Japanese for 'picture character'",
+      "content_text": "Mind blown. I always assumed emoji was a combination of emotion + icon. Nope. It's literally just the Japanese words for picture (e) and character (moji). The resemblance to 'emotion' is pure coincidence. Kurita originally designed 176 emoji for Japanese flip phones and they were 12x12 pixel grids.",
+      "score": 28000,
+      "metadata": { "subreddit": "todayilearned", "num_comments": 890 }
+    }
+  ],
+  "summary": {
+    "core_facts": [
+      "Emoji were created in 1999 by Shigetaka Kurita for NTT DoCoMo mobile carrier in Japan",
+      "The word 'emoji' means 'picture character' in Japanese (e + moji)",
+      "The resemblance to 'emotion' is a pure coincidence",
+      "The original set was 176 emoji on 12x12 pixel grids",
+      "Unicode Consortium adopted emoji in 2010, making them cross-platform",
+      "As of 2023, there are 3,782 emoji in the Unicode Standard"
+    ],
+    "surprising_angles": [
+      "Emoji has nothing to do with the word 'emotion' — it's a coincidence",
+      "One Japanese artist's 176 pixel drawings became a universal language",
+      "Emoji were designed for flip phones and now 92% of internet users use them"
+    ],
+    "common_misconceptions": [
+      "Emoji does NOT come from 'emotion' + 'icon'",
+      "Emoji and emoticons are not the same thing (emoticons are text-based like :) )"
+    ],
+    "best_hook_material": "The word 'emoji' has nothing to do with emotion — it's a Japanese coincidence",
+    "source_quality": "high",
+    "confidence_notes": "Well-documented history. Kurita's creation is undisputed."
+  },
+  "video_script": {
+    "hook": "Emoji has nothing to do with the word emotion.",
+    "fact": "The word comes from Japanese: 'e' means picture, 'moji' means character. The resemblance to 'emotion' is pure coincidence. One artist named Shigetaka Kurita drew the first 176 emoji for Japanese flip phones in 1999.",
+    "example": "Those tiny 12-by-12 pixel drawings are now used by 92 percent of everyone online. There are over 3,700 of them.",
+    "cta": "Follow for more words that don't mean what you think.",
+    "full_script": "Emoji has nothing to do with the word emotion. The word comes from Japanese: 'e' means picture, 'moji' means character. The resemblance to 'emotion' is pure coincidence. One artist named Shigetaka Kurita drew the first 176 emoji for Japanese flip phones in 1999. Those tiny 12-by-12 pixel drawings are now used by 92 percent of everyone online. There are over 3,700 of them. Follow for more words that don't mean what you think.",
+    "word_count": 78,
+    "estimated_duration_seconds": 35,
+    "angle": "The name itself is a misconception"
+  },
+  "video_prompt_queue_entry": {
+    "scenes": [
+      {
+        "scene_number": 1,
+        "section": "hook",
+        "duration_seconds": 3,
+        "text_overlay": "Emoji ≠ Emotion",
+        "visual_description": "Bold text with a red X between the words, dark background",
+        "background": { "type": "solid", "color": "#1a1a2e" },
+        "caption_text": "Emoji has nothing to do\nwith the word emotion."
+      },
+      {
+        "scene_number": 2,
+        "section": "fact",
+        "duration_seconds": 15,
+        "text_overlay": "絵 + 文字\npicture + character",
+        "visual_description": "Japanese characters with English translations below",
+        "background": { "type": "solid", "color": "#1a1a2e" },
+        "caption_text": "The word comes from Japanese:\n'e' means picture,\n'moji' means character.\n\nThe resemblance to 'emotion'\nis pure coincidence.\n\nOne artist drew the first 176 emoji\nfor Japanese flip phones in 1999."
+      },
+      {
+        "scene_number": 3,
+        "section": "example",
+        "duration_seconds": 10,
+        "text_overlay": "176 → 3,700+",
+        "visual_description": "Number growing animation, simple counter style",
+        "background": { "type": "solid", "color": "#1a1a2e" },
+        "caption_text": "Those tiny 12-by-12 pixel drawings\nare now used by 92 percent\nof everyone online.\n\nThere are over 3,700 of them."
+      },
+      {
+        "scene_number": 4,
+        "section": "cta",
+        "duration_seconds": 4,
+        "text_overlay": "Follow for more",
+        "visual_description": "Clean text on dark background",
+        "background": { "type": "solid", "color": "#1a1a2e" },
+        "caption_text": "Follow for more words that\ndon't mean what you think."
+      }
+    ],
+    "metadata": {
+      "youtube_title": "Emoji has NOTHING to do with emotion 🤯 #shorts",
+      "tiktok_caption": "Emoji doesn't mean what you think it means 🤯 #languagefacts #emoji #japanese",
+      "tags": ["emoji", "language facts", "japanese", "etymology", "word origins"],
+      "description": "The word emoji comes from Japanese 'picture character' — the resemblance to 'emotion' is pure coincidence."
+    }
+  }
+}

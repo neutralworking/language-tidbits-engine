@@ -1,0 +1,298 @@
+{
+  "name": "v2-source-ingestion",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, slug, raw_topic, category, channel FROM topics WHERE status = 'pending' ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END, created_at ASC LIMIT {{ $env.BATCH_SIZE || 5 }}"
+      },
+      "id": "load-pending-topics",
+      "name": "Load Pending Topics",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "credentials": {
+        "postgres": {
+          "id": "PLACEHOLDER",
+          "name": "Content Pipeline DB"
+        }
+      },
+      "notes": "Fetches next batch of pending topics. BATCH_SIZE env var controls how many per run (default 5)."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.id !== undefined }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "has-topics",
+      "name": "Any Topics?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE topics SET status = 'ingesting', updated_at = now() WHERE id = '{{ $json.id }}'"
+      },
+      "id": "mark-ingesting",
+      "name": "Mark Ingesting",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [660, -100],
+      "credentials": {
+        "postgres": {
+          "id": "PLACEHOLDER",
+          "name": "Content Pipeline DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://en.wikipedia.org/api/rest_v1/page/summary/{{ encodeURIComponent($json.raw_topic.replace(/ /g, '_')) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "wikipedia-summary",
+      "name": "Fetch Wikipedia Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [880, -200],
+      "notes": "Uses MediaWiki REST API (no auth needed). Returns extract, description, thumbnail. Rate limit: be polite, 1 req/sec. If 404, the topic may need a different Wikipedia title — log and continue."
+    },
+    {
+      "parameters": {
+        "url": "=https://en.wikipedia.org/w/api.php",
+        "qs": {
+          "action": "parse",
+          "page": "={{ $json.raw_topic.replace(/ /g, '_') }}",
+          "prop": "text|sections|categories",
+          "format": "json",
+          "redirects": "1"
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "wikipedia-html",
+      "name": "Fetch Wikipedia HTML",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [880, -50],
+      "notes": "MediaWiki Action API — fetches full parsed HTML. Heavier call, but gives us sections and categories for richer content. Rate limit: 200 req/sec for unauthed, but be polite."
+    },
+    {
+      "parameters": {
+        "url": "=https://www.reddit.com/search.json",
+        "qs": {
+          "q": "={{ $json.raw_topic }}",
+          "sort": "relevance",
+          "limit": "10",
+          "restrict_sr": "",
+          "t": "all"
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "language-tidbits-engine/1.0 (content research)"
+            }
+          ]
+        }
+      },
+      "id": "reddit-search",
+      "name": "Search Reddit Posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [880, 100],
+      "notes": "Reddit public JSON API. No auth required but rate limited to ~10 req/min. User-Agent is required. Returns top 10 posts. TODO: If using OAuth app, switch to oauth.reddit.com for higher limits."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and normalize Wikipedia summary + HTML into source_document format\nconst topic = $('Mark Ingesting').first().json;\nconst summary = $('Fetch Wikipedia Summary').first().json;\nconst html = $('Fetch Wikipedia HTML').first().json;\nconst crypto = require('crypto');\n\nconst docs = [];\n\n// Summary document\nif (summary && summary.extract) {\n  const text = summary.extract;\n  docs.push({\n    topic_id: topic.id,\n    source_type: 'wikipedia',\n    source_url: summary.content_urls?.desktop?.page || '',\n    source_id: String(summary.pageid || ''),\n    title: summary.title || topic.raw_topic,\n    content_text: text,\n    content_html: summary.extract_html || '',\n    author: null,\n    score: null,\n    metadata: JSON.stringify({\n      description: summary.description || '',\n      thumbnail: summary.thumbnail?.source || '',\n      type: summary.type || '',\n      lang: 'en',\n      doc_subtype: 'summary'\n    }),\n    content_hash: crypto.createHash('sha256').update(text).digest('hex')\n  });\n}\n\n// Full HTML document\nif (html && html.parse && html.parse.text) {\n  const fullText = html.parse.text['*'] || '';\n  // Strip HTML for plain text (basic)\n  const plainText = fullText.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim().substring(0, 50000);\n  if (plainText.length > 100) {\n    docs.push({\n      topic_id: topic.id,\n      source_type: 'wikipedia',\n      source_url: `https://en.wikipedia.org/wiki/${encodeURIComponent(topic.raw_topic.replace(/ /g, '_'))}`,\n      source_id: String(html.parse.pageid || '') + '_full',\n      title: (html.parse.title || topic.raw_topic) + ' (full)',\n      content_text: plainText,\n      content_html: fullText.substring(0, 200000),\n      author: null,\n      score: null,\n      metadata: JSON.stringify({\n        sections: (html.parse.sections || []).map(s => s.line),\n        categories: (html.parse.categories || []).map(c => c['*']),\n        doc_subtype: 'full_page'\n      }),\n      content_hash: crypto.createHash('sha256').update(plainText).digest('hex')\n    });\n  }\n}\n\nreturn docs.map(d => ({ json: d }));"
+      },
+      "id": "normalize-wikipedia",
+      "name": "Normalize Wikipedia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, -120],
+      "notes": "Normalizes Wikipedia API responses into source_document rows. Creates both summary and full-page entries. Hashes content for deduplication."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and normalize Reddit search results into source_document rows\nconst topic = $('Mark Ingesting').first().json;\nconst redditData = $('Search Reddit Posts').first().json;\nconst crypto = require('crypto');\n\nconst docs = [];\nconst posts = redditData?.data?.children || [];\n\nfor (const post of posts.slice(0, 5)) {\n  const p = post.data;\n  if (!p || !p.selftext && !p.title) continue;\n\n  const text = [p.title, p.selftext || ''].join('\\n\\n').trim();\n  if (text.length < 20) continue;\n\n  docs.push({\n    topic_id: topic.id,\n    source_type: 'reddit_post',\n    source_url: `https://www.reddit.com${p.permalink}`,\n    source_id: p.id || p.name,\n    title: p.title,\n    content_text: text.substring(0, 30000),\n    content_html: null,\n    author: p.author || '[deleted]',\n    score: p.score || 0,\n    metadata: JSON.stringify({\n      subreddit: p.subreddit,\n      num_comments: p.num_comments || 0,\n      created_utc: p.created_utc,\n      upvote_ratio: p.upvote_ratio,\n      is_self: p.is_self,\n      doc_subtype: 'post'\n    }),\n    content_hash: crypto.createHash('sha256').update(text).digest('hex')\n  });\n}\n\nreturn docs.map(d => ({ json: d }));"
+      },
+      "id": "normalize-reddit",
+      "name": "Normalize Reddit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 100],
+      "notes": "Normalizes Reddit API results into source_document rows. Takes top 5 posts by relevance. Hashes content for deduplication."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge Wikipedia and Reddit documents into a single array\nconst wikiDocs = $('Normalize Wikipedia').all().map(i => i.json);\nconst redditDocs = $('Normalize Reddit').all().map(i => i.json);\nconst allDocs = [...wikiDocs, ...redditDocs];\nreturn allDocs.map(d => ({ json: d }));"
+      },
+      "id": "merge-sources",
+      "name": "Merge Sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO source_documents (topic_id, source_type, source_url, source_id, title, content_text, content_html, author, score, metadata, content_hash) VALUES ('{{ $json.topic_id }}', '{{ $json.source_type }}', '{{ ($json.source_url || '').replace(/'/g, \"''\") }}', '{{ ($json.source_id || '').replace(/'/g, \"''\") }}', '{{ ($json.title || '').replace(/'/g, \"''\") }}', '{{ $json.content_text.substring(0, 100).replace(/'/g, \"''\") }}...', NULL, {{ $json.author ? \"'\" + $json.author.replace(/'/g, \"''\") + \"'\" : 'NULL' }}, {{ $json.score || 'NULL' }}, '{{ $json.metadata }}', '{{ $json.content_hash }}') ON CONFLICT (topic_id, source_type, source_id) DO UPDATE SET content_text = EXCLUDED.content_text, content_hash = EXCLUDED.content_hash, fetched_at = now() RETURNING id"
+      },
+      "id": "store-source-doc",
+      "name": "Store in Postgres",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1540, 0],
+      "credentials": {
+        "postgres": {
+          "id": "PLACEHOLDER",
+          "name": "Content Pipeline DB"
+        }
+      },
+      "notes": "Upserts each source document. The ON CONFLICT clause handles deduplication by (topic_id, source_type, source_id). TODO: In production, use parameterized queries to avoid SQL injection — n8n's Postgres node supports $1 params in newer versions."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE topics SET status = 'ingested', updated_at = now() WHERE id = '{{ $('Mark Ingesting').first().json.id }}'"
+      },
+      "id": "mark-ingested",
+      "name": "Mark Ingested",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1760, 0],
+      "credentials": {
+        "postgres": {
+          "id": "PLACEHOLDER",
+          "name": "Content Pipeline DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE topics SET status = 'error', error_message = 'Ingestion failed', updated_at = now() WHERE id = '{{ $json.id }}'"
+      },
+      "id": "mark-error",
+      "name": "Mark Error",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1100, 300],
+      "credentials": {
+        "postgres": {
+          "id": "PLACEHOLDER",
+          "name": "Content Pipeline DB"
+        }
+      },
+      "notes": "Error handler: marks topic as error if ingestion fails."
+    },
+    {
+      "parameters": {},
+      "id": "no-topics-stop",
+      "name": "No Topics",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [660, 100]
+    },
+    {
+      "parameters": {
+        "content": "## v2 Source Ingestion Workflow\n\nBatch-processes pending topics:\n1. Load pending topics from Postgres\n2. Fetch Wikipedia summary + full page via MediaWiki APIs\n3. Search Reddit for relevant posts via public JSON API\n4. Normalize all sources into source_documents table\n5. Deduplicate via content_hash and (topic, source, source_id) unique index\n\nRate limiting: add Wait nodes between batches in production.\nSee docs/content-pipeline.md for full guidance."
+      },
+      "id": "sticky-note",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, -300],
+      "parameters": {
+        "width": 500,
+        "height": 250
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Load Pending Topics", "type": "main", "index": 0}]]
+    },
+    "Load Pending Topics": {
+      "main": [[{"node": "Any Topics?", "type": "main", "index": 0}]]
+    },
+    "Any Topics?": {
+      "main": [
+        [{"node": "Mark Ingesting", "type": "main", "index": 0}],
+        [{"node": "No Topics", "type": "main", "index": 0}]
+      ]
+    },
+    "Mark Ingesting": {
+      "main": [
+        [
+          {"node": "Fetch Wikipedia Summary", "type": "main", "index": 0},
+          {"node": "Fetch Wikipedia HTML", "type": "main", "index": 0},
+          {"node": "Search Reddit Posts", "type": "main", "index": 0}
+        ]
+      ]
+    },
+    "Fetch Wikipedia Summary": {
+      "main": [[{"node": "Normalize Wikipedia", "type": "main", "index": 0}]]
+    },
+    "Fetch Wikipedia HTML": {
+      "main": [[{"node": "Normalize Wikipedia", "type": "main", "index": 0}]]
+    },
+    "Search Reddit Posts": {
+      "main": [[{"node": "Normalize Reddit", "type": "main", "index": 0}]]
+    },
+    "Normalize Wikipedia": {
+      "main": [[{"node": "Merge Sources", "type": "main", "index": 0}]]
+    },
+    "Normalize Reddit": {
+      "main": [[{"node": "Merge Sources", "type": "main", "index": 0}]]
+    },
+    "Merge Sources": {
+      "main": [[{"node": "Store in Postgres", "type": "main", "index": 0}]]
+    },
+    "Store in Postgres": {
+      "main": [[{"node": "Mark Ingested", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,267 @@
+{
+  "name": "v2-content-processing",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT t.id, t.slug, t.raw_topic, t.category, t.channel FROM topics t WHERE t.status = 'ingested' ORDER BY CASE t.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END, t.created_at ASC LIMIT 1"
+      },
+      "id": "load-ingested-topic",
+      "name": "Load Next Ingested Topic",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "credentials": {
+        "postgres": { "id": "PLACEHOLDER", "name": "Content Pipeline DB" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [{ "value1": "={{ $json.id !== undefined }}", "value2": true }]
+        }
+      },
+      "id": "has-topic",
+      "name": "Topic Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE topics SET status = 'processing' WHERE id = '{{ $json.id }}'; SELECT sd.id, sd.source_type, sd.title, sd.content_text, sd.score, sd.metadata FROM source_documents sd WHERE sd.topic_id = '{{ $json.id }}' ORDER BY sd.source_type, sd.score DESC NULLS LAST"
+      },
+      "id": "load-sources",
+      "name": "Load Source Documents",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [660, -100],
+      "credentials": {
+        "postgres": { "id": "PLACEHOLDER", "name": "Content Pipeline DB" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine all source documents into a single context block\nconst topic = $('Load Next Ingested Topic').first().json;\nconst sources = $('Load Source Documents').all().map(i => i.json);\n\nconst sourceBlock = sources.map(s => {\n  const meta = typeof s.metadata === 'string' ? JSON.parse(s.metadata) : s.metadata;\n  return `--- ${s.source_type.toUpperCase()}: ${s.title || 'Untitled'} ---\\n${s.content_text.substring(0, 8000)}`;\n}).join('\\n\\n');\n\nconst docIds = sources.map(s => s.id);\n\nreturn [{ json: { topic, sourceBlock, docIds, sourceCount: sources.length } }];"
+      },
+      "id": "prepare-context",
+      "name": "Prepare Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, -100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LLM_API_URL }}/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "={{ $env.LLM_MODEL }}" },
+            { "name": "messages", "value": "=[{\"role\": \"user\", \"content\": \"You are a research summarizer for a short-form video content pipeline.\\n\\nTopic: {{ $json.topic.raw_topic }}\\nCategory: {{ $json.topic.category }}\\n\\nSource material:\\n{{ $json.sourceBlock.substring(0, 12000) }}\\n\\nSummarize the key facts, interesting angles, and notable details from these sources. Focus on what would make compelling 20-40 second video content.\\n\\nRespond in JSON only:\\n{\\n  \\\"core_facts\\\": [\\\"fact 1\\\", \\\"fact 2\\\", ...],\\n  \\\"surprising_angles\\\": [\\\"angle 1\\\", \\\"angle 2\\\", ...],\\n  \\\"common_misconceptions\\\": [\\\"myth 1\\\", ...],\\n  \\\"best_hook_material\\\": \\\"The single most attention-grabbing element\\\",\\n  \\\"source_quality\\\": \\\"high/medium/low\\\",\\n  \\\"confidence_notes\\\": \\\"Any concerns about accuracy\\\"\\n}\"}]" }
+          ]
+        }
+      },
+      "id": "summarize-sources",
+      "name": "Summarize Sources (LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1100, -200],
+      "credentials": {
+        "httpHeaderAuth": { "id": "PLACEHOLDER", "name": "LLM API Key" }
+      },
+      "notes": "Calls LLM with source_summarizer prompt. Full prompt template is in prompts/pipeline/source_summarizer.txt."
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = JSON.parse($input.first().json.choices[0].message.content);\nconst prev = $('Prepare Context').first().json;\nreturn [{ json: { ...prev, summary: response } }];"
+      },
+      "id": "parse-summary",
+      "name": "Parse Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, -200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO summaries (topic_id, summary_type, input_doc_ids, content, model_used, prompt_version) VALUES ('{{ $json.topic.id }}', 'source_summary', ARRAY[{{ $json.docIds.map(d => \"'\" + d + \"'\").join(',') }}]::uuid[], '{{ JSON.stringify($json.summary).replace(/'/g, \"''\") }}', '{{ $env.LLM_MODEL }}', 'v1') RETURNING id"
+      },
+      "id": "store-summary",
+      "name": "Store Summary",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1540, -200],
+      "credentials": {
+        "postgres": { "id": "PLACEHOLDER", "name": "Content Pipeline DB" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LLM_API_URL }}/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "={{ $env.LLM_MODEL }}" },
+            { "name": "messages", "value": "=[{\"role\": \"user\", \"content\": \"You are a scriptwriter for faceless short-form videos about language facts.\\n\\nTopic: {{ $json.topic.raw_topic }}\\nResearch summary: {{ JSON.stringify($json.summary).substring(0, 6000) }}\\n\\nWrite a complete 20-40 second video script. Structure: Hook (stop the scroll) → Fact (2-3 sentences) → Example (concrete contrast) → CTA (natural, one sentence). Total: 40-80 words. Simple English. Globally understandable.\\n\\nAlso generate 4 scenes for video production.\\n\\nRespond in JSON only:\\n{\\n  \\\"hook\\\": \\\"\\\",\\n  \\\"fact\\\": \\\"\\\",\\n  \\\"example\\\": \\\"\\\",\\n  \\\"cta\\\": \\\"\\\",\\n  \\\"full_script\\\": \\\"\\\",\\n  \\\"word_count\\\": 0,\\n  \\\"estimated_duration_seconds\\\": 0,\\n  \\\"angle\\\": \\\"\\\",\\n  \\\"scenes\\\": [\\n    {\\n      \\\"scene_number\\\": 1,\\n      \\\"section\\\": \\\"hook\\\",\\n      \\\"duration_seconds\\\": 3,\\n      \\\"text_overlay\\\": \\\"\\\",\\n      \\\"visual_description\\\": \\\"\\\",\\n      \\\"caption_text\\\": \\\"\\\"\\n    }\\n  ],\\n  \\\"metadata\\\": {\\n    \\\"youtube_title\\\": \\\"\\\",\\n    \\\"tiktok_caption\\\": \\\"\\\",\\n    \\\"tags\\\": [],\\n    \\\"description\\\": \\\"\\\"\\n  }\\n}\"}]" }
+          ]
+        }
+      },
+      "id": "generate-script-and-scenes",
+      "name": "Generate Script + Scenes (LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1760, -200],
+      "credentials": {
+        "httpHeaderAuth": { "id": "PLACEHOLDER", "name": "LLM API Key" }
+      },
+      "notes": "Combined script + scene generation in one LLM call to reduce latency. Full prompt templates in prompts/pipeline/script_planner.txt and scene_prompt_generator.txt."
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = JSON.parse($input.first().json.choices[0].message.content);\nconst prev = $('Parse Summary').first().json;\nreturn [{ json: { ...prev, script: response, summaryId: $('Store Summary').first().json.id } }];"
+      },
+      "id": "parse-script",
+      "name": "Parse Script + Scenes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1980, -200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO video_scripts (topic_id, summary_id, hook, fact, example, cta, full_script, word_count, estimated_duration_seconds, angle, model_used, prompt_version) VALUES ('{{ $json.topic.id }}', {{ $json.summaryId ? \"'\" + $json.summaryId + \"'\" : 'NULL' }}, '{{ $json.script.hook.replace(/'/g, \"''\") }}', '{{ $json.script.fact.replace(/'/g, \"''\") }}', '{{ $json.script.example.replace(/'/g, \"''\") }}', '{{ $json.script.cta.replace(/'/g, \"''\") }}', '{{ $json.script.full_script.replace(/'/g, \"''\") }}', {{ $json.script.word_count }}, {{ $json.script.estimated_duration_seconds }}, '{{ ($json.script.angle || '').replace(/'/g, \"''\") }}', '{{ $env.LLM_MODEL }}', 'v1') RETURNING id"
+      },
+      "id": "store-script",
+      "name": "Store Script",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [2200, -200],
+      "credentials": {
+        "postgres": { "id": "PLACEHOLDER", "name": "Content Pipeline DB" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO video_prompt_queue (topic_id, script_id, channel, hook, fact, example, cta, full_script, scenes, title, description, tags, youtube_title, tiktok_caption, status) VALUES ('{{ $json.topic.id }}', '{{ $('Store Script').first().json.id }}', '{{ $json.topic.channel }}', '{{ $json.script.hook.replace(/'/g, \"''\") }}', '{{ $json.script.fact.replace(/'/g, \"''\") }}', '{{ $json.script.example.replace(/'/g, \"''\") }}', '{{ $json.script.cta.replace(/'/g, \"''\") }}', '{{ $json.script.full_script.replace(/'/g, \"''\") }}', '{{ JSON.stringify($json.script.scenes || []).replace(/'/g, \"''\") }}', '{{ ($json.script.metadata.youtube_title || $json.topic.raw_topic).replace(/'/g, \"''\") }}', '{{ ($json.script.metadata.description || '').replace(/'/g, \"''\") }}', ARRAY[{{ ($json.script.metadata.tags || []).map(t => \"'\" + t.replace(/'/g, \"''\") + \"'\").join(',') }}], '{{ ($json.script.metadata.youtube_title || '').replace(/'/g, \"''\") }}', '{{ ($json.script.metadata.tiktok_caption || '').replace(/'/g, \"''\") }}', 'queued')"
+      },
+      "id": "queue-prompt",
+      "name": "Queue Video Prompt",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [2420, -200],
+      "credentials": {
+        "postgres": { "id": "PLACEHOLDER", "name": "Content Pipeline DB" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE topics SET status = 'ready', updated_at = now() WHERE id = '{{ $json.topic.id }}'"
+      },
+      "id": "mark-ready",
+      "name": "Mark Topic Ready",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [2640, -200],
+      "credentials": {
+        "postgres": { "id": "PLACEHOLDER", "name": "Content Pipeline DB" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO pipeline_runs (topic_id, workflow_name, stage, status, started_at, completed_at) VALUES ('{{ $json.topic.id }}', 'v2-content-processing', 'full_pipeline', 'completed', now() - interval '1 minute', now())"
+      },
+      "id": "log-pipeline-run",
+      "name": "Log Pipeline Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [2860, -200],
+      "credentials": {
+        "postgres": { "id": "PLACEHOLDER", "name": "Content Pipeline DB" }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "no-topics-stop",
+      "name": "No Ingested Topics",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [660, 100]
+    },
+    {
+      "parameters": {
+        "content": "## v2 Content Processing Workflow\n\nProcesses one ingested topic at a time:\n1. Load source documents from Postgres\n2. Summarize sources via LLM (key facts, angles, hooks)\n3. Generate script + scene-by-scene video prompts via LLM\n4. Store script and prompt package in video_prompt_queue\n5. Mark topic as ready\n\nHuman review happens AFTER this workflow — check video_scripts.review_status.\nSee docs/content-pipeline.md for full guidance."
+      },
+      "id": "sticky-note",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, -300],
+      "parameters": { "width": 500, "height": 200 }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{"node": "Load Next Ingested Topic", "type": "main", "index": 0}]]
+    },
+    "Load Next Ingested Topic": {
+      "main": [[{"node": "Topic Found?", "type": "main", "index": 0}]]
+    },
+    "Topic Found?": {
+      "main": [
+        [{"node": "Load Source Documents", "type": "main", "index": 0}],
+        [{"node": "No Ingested Topics", "type": "main", "index": 0}]
+      ]
+    },
+    "Load Source Documents": {
+      "main": [[{"node": "Prepare Context", "type": "main", "index": 0}]]
+    },
+    "Prepare Context": {
+      "main": [[{"node": "Summarize Sources (LLM)", "type": "main", "index": 0}]]
+    },
+    "Summarize Sources (LLM)": {
+      "main": [[{"node": "Parse Summary", "type": "main", "index": 0}]]
+    },
+    "Parse Summary": {
+      "main": [[{"node": "Store Summary", "type": "main", "index": 0}]]
+    },
+    "Store Summary": {
+      "main": [[{"node": "Generate Script + Scenes (LLM)", "type": "main", "index": 0}]]
+    },
+    "Generate Script + Scenes (LLM)": {
+      "main": [[{"node": "Parse Script + Scenes", "type": "main", "index": 0}]]
+    },
+    "Parse Script + Scenes": {
+      "main": [[{"node": "Store Script", "type": "main", "index": 0}]]
+    },
+    "Store Script": {
+      "main": [[{"node": "Queue Video Prompt", "type": "main", "index": 0}]]
+    },
+    "Queue Video Prompt": {
+      "main": [[{"node": "Mark Topic Ready", "type": "main", "index": 0}]]
+    },
+    "Mark Topic Ready": {
+      "main": [[{"node": "Log Pipeline Run", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -139,3 +139,35 @@ Variables in prompts use `{{variable_name}}` notation. n8n's expression system r
 - v1 ignores most of this and uses a default background
 - The brief is saved to output metadata for future template rendering
 - Keep suggestions simple and achievable with basic image tools
+
+---
+
+## Pipeline prompts (v2)
+
+The content pipeline adds four prompts in `prompts/pipeline/`. These are used by the v2-content-processing workflow.
+
+### prompts/pipeline/source_summarizer.txt
+
+**Purpose:** Distill raw Wikipedia and Reddit content into a structured research brief.
+**Input:** Topic name, category, raw source text blocks
+**Output:** JSON with core_facts, surprising_angles, misconceptions, best_hook_material, source_quality
+
+### prompts/pipeline/angle_extractor.txt
+
+**Purpose:** Select the single best angle for a short video from the research brief.
+**Input:** Topic name, research summary JSON
+**Output:** JSON with 3 ranked candidate angles, selected winner, reasoning
+
+### prompts/pipeline/script_planner.txt
+
+**Purpose:** Write a complete hook/fact/example/CTA script from research and selected angle.
+**Input:** Topic, selected angle, research summary
+**Output:** JSON with script sections, word count, duration estimate, tone
+
+### prompts/pipeline/scene_prompt_generator.txt
+
+**Purpose:** Break a script into 4 scene-by-scene visual descriptions for video production.
+**Input:** Script JSON, metadata
+**Output:** JSON with scenes array (visual descriptions, backgrounds, captions, timing)
+
+See `docs/content-pipeline.md` for how these prompts connect to the n8n workflows and Postgres tables.

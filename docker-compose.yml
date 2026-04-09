@@ -1,19 +1,41 @@
 # docker-compose.yml — language-tidbits-engine services
 #
-# Starts n8n (orchestration) and Kokoro TTS (voiceover).
+# Starts n8n (orchestration), Kokoro TTS (voiceover), and Postgres (content pipeline).
 #
 # Usage:
 #   docker compose up -d          # start services
 #   docker compose logs -f n8n    # watch n8n logs
 #   docker compose down           # stop services
 #
-# n8n UI: http://localhost:5678
-# TTS API: http://localhost:8880
+# n8n UI:     http://localhost:5678
+# TTS API:    http://localhost:8880
+# Postgres:   localhost:5432
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-language_tidbits}
+      - POSTGRES_USER=${POSTGRES_USER:-tidbits}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tidbits}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   n8n:
     image: n8nio/n8n:latest
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "${N8N_PORT:-5678}:5678"
     environment:
@@ -53,5 +75,6 @@ services:
     #           capabilities: [gpu]
 
 volumes:
+  postgres_data:
   n8n_data:
   kokoro_models:

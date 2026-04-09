@@ -1,0 +1,103 @@
+{
+  "topic": {
+    "slug": "click-languages",
+    "raw_topic": "The click languages of Southern Africa",
+    "category": "phonetics",
+    "channel": "language-tidbits"
+  },
+  "source_documents": [
+    {
+      "source_type": "wikipedia",
+      "source_id": "1234567",
+      "title": "Click consonant",
+      "content_text": "Click consonants are speech sounds that occur as consonants in many languages of Southern Africa and in a few languages of East Africa. Clicks are produced by creating a closure in the mouth, rarefying the air between the closure and another closure further back in the mouth, and then releasing the forward closure. The Taa language (also known as !Xóõ) has the largest inventory of click consonants, with over 80 distinct click sounds. Approximately 30 living languages use clicks as regular consonants, primarily in the Khoisan, Bantu, and Cushitic language families. Zulu and Xhosa, spoken by millions, include click consonants borrowed from Khoisan languages.",
+      "metadata": { "doc_subtype": "summary" }
+    },
+    {
+      "source_type": "reddit_post",
+      "source_id": "ghi789",
+      "title": "There's a language with over 80 different click sounds and it's one of the hardest languages to learn",
+      "content_text": "The Taa language (!Xóõ) has the largest consonant inventory of any known language — 164 consonants, including 83 clicks. It's spoken by about 2,500 people in Botswana and Namibia. For comparison, English has about 24 consonant sounds. These aren't just random mouth noises — each click is as distinct to native speakers as 'b' and 'p' are to English speakers.",
+      "score": 15200,
+      "metadata": { "subreddit": "linguistics", "num_comments": 430 }
+    }
+  ],
+  "summary": {
+    "core_facts": [
+      "About 30 living languages use click consonants as regular speech sounds",
+      "The Taa language (!Xóõ) has over 80 distinct click sounds — the most of any language",
+      "Taa has 164 total consonants vs English's 24",
+      "Clicks are produced by creating an air pocket in the mouth and releasing it",
+      "Zulu and Xhosa (spoken by millions) borrowed clicks from Khoisan languages",
+      "Each click is as phonemically distinct to speakers as 'b' vs 'p' is in English"
+    ],
+    "surprising_angles": [
+      "A language exists with 7x more consonant sounds than English",
+      "What sounds like random mouth noises to us is as precise as any alphabet",
+      "Major languages like Zulu 'borrowed' click sounds from smaller indigenous languages"
+    ],
+    "common_misconceptions": [
+      "Clicks are NOT random or primitive — they are precise, systematic consonants",
+      "Click languages are NOT extinct — Zulu alone has 12+ million speakers"
+    ],
+    "best_hook_material": "There's a language with 164 consonants. English has 24.",
+    "source_quality": "high",
+    "confidence_notes": "Click consonant counts are well-documented in phonetics research."
+  },
+  "video_script": {
+    "hook": "There's a language with 164 consonants. English has 24.",
+    "fact": "The Taa language of Botswana has over 80 different click sounds. Each one is as distinct to native speakers as 'b' and 'p' are to you.",
+    "example": "And clicks aren't rare. Zulu and Xhosa — spoken by millions — borrowed click sounds from these languages centuries ago.",
+    "cta": "Follow to hear more sounds your language can't make.",
+    "full_script": "There's a language with 164 consonants. English has 24. The Taa language of Botswana has over 80 different click sounds. Each one is as distinct to native speakers as 'b' and 'p' are to you. And clicks aren't rare. Zulu and Xhosa — spoken by millions — borrowed click sounds from these languages centuries ago. Follow to hear more sounds your language can't make.",
+    "word_count": 64,
+    "estimated_duration_seconds": 28,
+    "angle": "Scale comparison — 164 vs 24 consonants"
+  },
+  "video_prompt_queue_entry": {
+    "scenes": [
+      {
+        "scene_number": 1,
+        "section": "hook",
+        "duration_seconds": 4,
+        "text_overlay": "164 vs 24",
+        "visual_description": "Large numbers side by side, 164 in accent color, 24 in white",
+        "background": { "type": "solid", "color": "#1a1a2e" },
+        "caption_text": "There's a language\nwith 164 consonants.\nEnglish has 24."
+      },
+      {
+        "scene_number": 2,
+        "section": "fact",
+        "duration_seconds": 10,
+        "text_overlay": "80+ click sounds",
+        "visual_description": "The number 80 with a sound wave visualization beneath it",
+        "background": { "type": "solid", "color": "#1a1a2e" },
+        "caption_text": "The Taa language of Botswana\nhas over 80 different click sounds.\n\nEach one is as distinct\nto native speakers\nas 'b' and 'p' are to you."
+      },
+      {
+        "scene_number": 3,
+        "section": "example",
+        "duration_seconds": 10,
+        "text_overlay": "Zulu • Xhosa",
+        "visual_description": "Language names with 'millions of speakers' subtext",
+        "background": { "type": "solid", "color": "#1a1a2e" },
+        "caption_text": "And clicks aren't rare.\n\nZulu and Xhosa —\nspoken by millions —\nborrowed click sounds\ncenturies ago."
+      },
+      {
+        "scene_number": 4,
+        "section": "cta",
+        "duration_seconds": 4,
+        "text_overlay": "Follow for more",
+        "visual_description": "Clean text with subtle accent underline",
+        "background": { "type": "solid", "color": "#1a1a2e" },
+        "caption_text": "Follow to hear more sounds\nyour language can't make."
+      }
+    ],
+    "metadata": {
+      "youtube_title": "This language has 164 consonants 🤯 #shorts",
+      "tiktok_caption": "English has 24 consonants. This language has 164. #languagefacts #phonetics #clicks",
+      "tags": ["language facts", "click consonants", "phonetics", "Taa language", "Zulu", "linguistics"],
+      "description": "The Taa language of Botswana has over 80 click sounds and 164 total consonants — nearly 7x more than English."
+    }
+  }
+}

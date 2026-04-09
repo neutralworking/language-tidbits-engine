@@ -1,0 +1,105 @@
+{
+  "topic": {
+    "slug": "ok-origin",
+    "raw_topic": "Origin of the word OK",
+    "category": "etymology",
+    "channel": "language-tidbits"
+  },
+  "source_documents": [
+    {
+      "source_type": "wikipedia",
+      "source_id": "22497",
+      "title": "OK",
+      "content_text": "OK (also spelled okay, ok, or O.K.) is an English word denoting approval, acceptance, agreement, assent, acknowledgment, or a sign of indifference. OK is frequently used as a loanword in other languages. The origins of the word are disputed, but the most widely accepted theory traces it to an 1839 abbreviation of 'oll korrect', a humorous misspelling of 'all correct', which was part of a broader fad of abbreviations in Boston newspapers during the late 1830s. Allen Walker Read, a Columbia University etymologist, published a series of articles in 1963-1964 establishing this origin.",
+      "metadata": { "doc_subtype": "summary" },
+      "content_hash": "a1b2c3d4..."
+    },
+    {
+      "source_type": "reddit_post",
+      "source_id": "abc123",
+      "title": "TIL the word 'OK' originated as a joke abbreviation in an 1839 Boston newspaper",
+      "content_text": "The Boston Morning Post published it on March 23, 1839. It was part of a fad where people would abbreviate misspelled phrases. Other examples from the same era include KY for 'know yuse' (no use) and KG for 'know go' (no go). OK is the only one that survived.",
+      "score": 34500,
+      "metadata": { "subreddit": "todayilearned", "num_comments": 1200 }
+    }
+  ],
+  "summary": {
+    "core_facts": [
+      "OK first appeared in print on March 23, 1839, in the Boston Morning Post",
+      "It stood for 'oll korrect', a humorous misspelling of 'all correct'",
+      "It was part of a fad of abbreviating misspelled phrases in 1830s Boston newspapers",
+      "Allen Walker Read (Columbia University) established this origin in the 1960s",
+      "OK is now used as a loanword in virtually every language on Earth",
+      "Other abbreviations from the same fad (KY, KG, OW) all died out — only OK survived"
+    ],
+    "surprising_angles": [
+      "The most universally understood word on Earth was invented as a joke",
+      "OK survived while every other abbreviation from the same fad died",
+      "Telegraph operators adopted OK because it was fast to tap in Morse code"
+    ],
+    "common_misconceptions": [
+      "OK does NOT come from the German 'Ober-Kommando'",
+      "OK does NOT come from a Haitian port 'Aux Cayes' famous for rum",
+      "OK does NOT come from a railroad freight agent named Obadiah Kelly"
+    ],
+    "best_hook_material": "The most used word on Earth was invented as a newspaper joke in 1839",
+    "source_quality": "high",
+    "confidence_notes": "Allen Walker Read's research is widely accepted. The 'oll korrect' origin is the scholarly consensus."
+  },
+  "video_script": {
+    "hook": "The most used word on Earth was invented as a joke.",
+    "fact": "In the 1830s, Boston newspaper writers had a fad of abbreviating misspelled phrases. OK stood for 'oll korrect' — a playful misspelling of 'all correct.'",
+    "example": "Every other abbreviation from that fad died out. OK survived because telegraph operators loved how fast it was to tap.",
+    "cta": "Follow for more language secrets hiding in plain sight.",
+    "full_script": "The most used word on Earth was invented as a joke. In the 1830s, Boston newspaper writers had a fad of abbreviating misspelled phrases. OK stood for 'oll korrect' — a playful misspelling of 'all correct.' Every other abbreviation from that fad died out. OK survived because telegraph operators loved how fast it was to tap. Follow for more language secrets hiding in plain sight.",
+    "word_count": 65,
+    "estimated_duration_seconds": 29,
+    "angle": "A joke that outlived its era to become universal"
+  },
+  "video_prompt_queue_entry": {
+    "scenes": [
+      {
+        "scene_number": 1,
+        "section": "hook",
+        "duration_seconds": 4,
+        "text_overlay": "The most used word\non Earth...",
+        "visual_description": "Dark navy background, large white text fades in centered",
+        "background": { "type": "solid", "color": "#1a1a2e" },
+        "caption_text": "The most used word on Earth\nwas invented as a joke."
+      },
+      {
+        "scene_number": 2,
+        "section": "fact",
+        "duration_seconds": 12,
+        "text_overlay": "\"oll korrect\"",
+        "visual_description": "The phrase 'oll korrect' in large quotation marks, with 'all correct' faintly below it",
+        "background": { "type": "solid", "color": "#1a1a2e" },
+        "caption_text": "In the 1830s, Boston writers\nabbreviated misspelled phrases.\n\nOK stood for 'oll korrect' —\na playful misspelling of\n'all correct.'"
+      },
+      {
+        "scene_number": 3,
+        "section": "example",
+        "duration_seconds": 9,
+        "text_overlay": "Only OK survived",
+        "visual_description": "Text 'KY KG OW' crossed out, 'OK' highlighted in accent color",
+        "background": { "type": "solid", "color": "#1a1a2e" },
+        "caption_text": "Every other abbreviation\nfrom that fad died out.\n\nOK survived because\ntelegraph operators loved\nhow fast it was to tap."
+      },
+      {
+        "scene_number": 4,
+        "section": "cta",
+        "duration_seconds": 4,
+        "text_overlay": "Follow for more",
+        "visual_description": "Clean text with subtle accent underline",
+        "background": { "type": "solid", "color": "#1a1a2e" },
+        "caption_text": "Follow for more language secrets\nhiding in plain sight."
+      }
+    ],
+    "metadata": {
+      "youtube_title": "This word was invented as a JOKE 🤯 #shorts",
+      "tiktok_caption": "The most used word on Earth started as a newspaper joke 🤯 #languagefacts #etymology",
+      "tags": ["language facts", "etymology", "word origins", "OK origin", "english"],
+      "description": "The word OK has the wildest origin story — it started as 1830s newspaper slang and became the most understood word on Earth."
+    }
+  }
+}
