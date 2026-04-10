@@ -1,6 +1,7 @@
 # docker-compose.yml — language-tidbits-engine services
 #
-# Starts n8n (orchestration), Kokoro TTS (voiceover), and Postgres (content pipeline).
+# n8n (orchestration) and Kokoro TTS (voiceover).
+# Postgres is managed separately via Coolify.
 #
 # Usage:
 #   docker compose up -d          # start services
@@ -9,33 +10,11 @@
 #
 # n8n UI:     http://localhost:5678
 # TTS API:    http://localhost:8880
-# Postgres:   localhost:5432
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB:-language_tidbits}
-      - POSTGRES_USER=${POSTGRES_USER:-tidbits}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./db:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tidbits}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   n8n:
     image: n8nio/n8n:latest
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     ports:
       - "${N8N_PORT:-5678}:5678"
     environment:
@@ -48,14 +27,12 @@ services:
       - n8n_data:/home/node/.n8n
       - ./prompts:/home/node/prompts:ro
       - ./scripts:/home/node/scripts:ro
+      - ./n8n/workflows:/home/node/workflows:ro
       - ./assets:/home/node/assets
       - ./data:/home/node/data
 
   # Kokoro TTS — local text-to-speech with OpenAI-compatible API
   # https://github.com/remsky/Kokoro-FastAPI
-  #
-  # TODO: Verify image tag and GPU config for your hardware.
-  # CPU-only mode works but is slower. For GPU, uncomment the deploy section.
   kokoro-tts:
     image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
     restart: unless-stopped
@@ -65,16 +42,7 @@ services:
       - DEVICE=cpu
     volumes:
       - kokoro_models:/app/models
-    # Uncomment below for GPU acceleration (requires nvidia-container-toolkit):
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
 
 volumes:
-  postgres_data:
   n8n_data:
   kokoro_models:
