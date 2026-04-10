@@ -77,23 +77,42 @@ def fetch_json(url: str, headers: dict = None) -> dict | None:
         return None
 
 
+def search_wikipedia(topic: str) -> str | None:
+    """Search Wikipedia and return the best matching page title."""
+    q = urllib.request.quote(topic)
+    url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={q}&srlimit=3&format=json"
+    data = fetch_json(url)
+    results = (data or {}).get("query", {}).get("search", [])
+    if results:
+        return results[0]["title"]
+    return None
+
+
 def fetch_wikipedia_summary(topic: str) -> dict | None:
-    slug = topic.replace(" ", "_")
+    title = search_wikipedia(topic)
+    if not title:
+        return None
+    slug = title.replace(" ", "_")
     url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.request.quote(slug)}"
     return fetch_json(url)
 
 
 def fetch_wikipedia_html(topic: str) -> dict | None:
-    slug = topic.replace(" ", "_")
-    url = f"https://en.wikipedia.org/w/api.php?action=parse&page={urllib.request.quote(slug)}&prop=text|sections|categories&format=json&redirects=1"
+    title = search_wikipedia(topic)
+    if not title:
+        return None
+    url = f"https://en.wikipedia.org/w/api.php?action=parse&page={urllib.request.quote(title)}&prop=text|sections|categories&format=json&redirects=1"
     return fetch_json(url)
 
 
-def fetch_reddit(topic: str) -> dict | None:
+def fetch_reddit(topic: str) -> list | None:
+    """Search Reddit via Pullpush (free archive API, no OAuth needed)."""
     q = urllib.request.quote(topic)
-    url = f"https://www.reddit.com/search.json?q={q}&sort=relevance&limit=10&t=all"
-    headers = {"User-Agent": "language-tidbits-engine/1.0 (content research)"}
-    return fetch_json(url, headers)
+    url = f"https://api.pullpush.io/reddit/search/submission/?q={q}&sort=score&sort_type=desc&size=10"
+    data = fetch_json(url)
+    if data and "data" in data:
+        return data["data"]
+    return None
 
 
 def strip_html(html: str) -> str:
@@ -188,22 +207,22 @@ def ingest_topic(cur, topic_id: str, raw_topic: str, slug: str) -> int:
 
     time.sleep(1)
 
-    # Reddit
+    # Reddit (via Pullpush archive API)
     print("  Searching Reddit...")
-    reddit = fetch_reddit(raw_topic)
-    posts = (reddit or {}).get("data", {}).get("children", [])
-    for post in posts[:5]:
-        p = post.get("data", {})
+    posts = fetch_reddit(raw_topic) or []
+    reddit_stored = 0
+    for p in posts[:5]:
         if not p:
             continue
         text = f"{p.get('title', '')}\n\n{p.get('selftext', '')}".strip()
         if len(text) < 20:
             continue
+        permalink = p.get("permalink", f"/r/{p.get('subreddit', '')}/comments/{p.get('id', '')}/")
         doc = {
             "topic_id": topic_id,
             "source_type": "reddit_post",
-            "source_url": f"https://www.reddit.com{p.get('permalink', '')}",
-            "source_id": p.get("id", p.get("name", "")),
+            "source_url": f"https://www.reddit.com{permalink}",
+            "source_id": p.get("id", ""),
             "title": p.get("title", ""),
             "content_text": text[:30000],
             "content_html": None,
@@ -213,14 +232,14 @@ def ingest_topic(cur, topic_id: str, raw_topic: str, slug: str) -> int:
                 "subreddit": p.get("subreddit", ""),
                 "num_comments": p.get("num_comments", 0),
                 "created_utc": p.get("created_utc"),
-                "upvote_ratio": p.get("upvote_ratio"),
                 "doc_subtype": "post",
             }),
             "content_hash": sha256(text),
         }
         if upsert_source(cur, doc):
             stored += 1
-    print(f"  ✓ {min(len(posts), 5)} Reddit posts checked, {stored - 2 if stored > 2 else 0} stored")
+            reddit_stored += 1
+    print(f"  ✓ {min(len(posts), 5)} Reddit posts checked, {reddit_stored} stored")
 
     time.sleep(6)  # Reddit rate limit
 
