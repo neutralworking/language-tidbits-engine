@@ -1,0 +1,963 @@
+{
+  "name": "studio-webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "studio/submit",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {"name": "Access-Control-Allow-Origin", "value": "*"},
+              {"name": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS"},
+              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"}
+            ]
+          }
+        }
+      },
+      "id": "wh-submit",
+      "name": "Webhook: Submit",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "webhookId": "studio-submit"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.body.input || '';\nconst slug = input\n  .toLowerCase()\n  .replace(/[^a-z0-9\\s-]/g, '')\n  .replace(/\\s+/g, '-')\n  .replace(/-+/g, '-')\n  .replace(/^-|-$/g, '')\n  .substring(0, 80);\nreturn [{ json: { raw_topic: input, slug } }];"
+      },
+      "id": "generate-slug",
+      "name": "Generate Slug",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO topics (raw_topic, slug, status) VALUES ('{{ $json.raw_topic.replace(/'/g, \"''\") }}', '{{ $json.slug.replace(/'/g, \"''\") }}', 'pending') RETURNING id, slug, status"
+      },
+      "id": "create-topic",
+      "name": "Create Topic",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ id: $json.id, slug: $json.slug, status: $json.status }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {"name": "Access-Control-Allow-Origin", "value": "*"},
+              {"name": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS"},
+              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"}
+            ]
+          }
+        }
+      },
+      "id": "respond-submit",
+      "name": "Respond: Submit",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE topics SET status = 'ingesting', updated_at = now() WHERE id = '{{ $json.id }}' RETURNING id, raw_topic, slug"
+      },
+      "id": "mark-ingesting",
+      "name": "Mark Ingesting",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [880, 0],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://en.wikipedia.org/api/rest_v1/page/summary/{{ encodeURIComponent($json.raw_topic.replace(/ /g, '_')) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "wikipedia-summary",
+      "name": "Fetch Wikipedia Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1100, -200]
+    },
+    {
+      "parameters": {
+        "url": "=https://en.wikipedia.org/w/api.php",
+        "qs": {
+          "action": "parse",
+          "page": "={{ $json.raw_topic.replace(/ /g, '_') }}",
+          "prop": "text|sections|categories",
+          "format": "json",
+          "redirects": "1"
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "wikipedia-html",
+      "name": "Fetch Wikipedia HTML",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1100, -50]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.pullpush.io/reddit/search/submission/",
+        "qs": {
+          "q": "={{ $json.raw_topic }}",
+          "sort": "score",
+          "size": "10"
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "language-tidbits-engine/1.0 (content research)"
+            }
+          ]
+        }
+      },
+      "id": "reddit-pullpush",
+      "name": "Fetch Reddit (Pullpush)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1100, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "const topic = $('Mark Ingesting').first().json;\nconst summary = $('Fetch Wikipedia Summary').first().json;\nconst html = $('Fetch Wikipedia HTML').first().json;\nconst redditData = $('Fetch Reddit (Pullpush)').first().json;\nconst crypto = require('crypto');\n\nconst docs = [];\n\n// Wikipedia summary\nif (summary && summary.extract) {\n  const text = summary.extract;\n  docs.push({\n    topic_id: topic.id,\n    source_type: 'wikipedia',\n    source_url: summary.content_urls?.desktop?.page || '',\n    source_id: String(summary.pageid || ''),\n    title: summary.title || topic.raw_topic,\n    content_text: text,\n    content_html: summary.extract_html || '',\n    author: null,\n    score: null,\n    metadata: JSON.stringify({\n      description: summary.description || '',\n      thumbnail: summary.thumbnail?.source || '',\n      type: summary.type || '',\n      lang: 'en',\n      doc_subtype: 'summary'\n    }),\n    content_hash: crypto.createHash('sha256').update(text).digest('hex')\n  });\n}\n\n// Wikipedia full HTML\nif (html && html.parse && html.parse.text) {\n  const fullText = html.parse.text['*'] || '';\n  const plainText = fullText.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim().substring(0, 50000);\n  if (plainText.length > 100) {\n    docs.push({\n      topic_id: topic.id,\n      source_type: 'wikipedia',\n      source_url: `https://en.wikipedia.org/wiki/${encodeURIComponent(topic.raw_topic.replace(/ /g, '_'))}`,\n      source_id: String(html.parse.pageid || '') + '_full',\n      title: (html.parse.title || topic.raw_topic) + ' (full)',\n      content_text: plainText,\n      content_html: fullText.substring(0, 200000),\n      author: null,\n      score: null,\n      metadata: JSON.stringify({\n        sections: (html.parse.sections || []).map(s => s.line),\n        categories: (html.parse.categories || []).map(c => c['*']),\n        doc_subtype: 'full_page'\n      }),\n      content_hash: crypto.createHash('sha256').update(plainText).digest('hex')\n    });\n  }\n}\n\n// Reddit posts via Pullpush\nconst posts = redditData?.data || [];\nfor (const p of posts.slice(0, 5)) {\n  if (!p || (!p.selftext && !p.title)) continue;\n  const text = [p.title, p.selftext || ''].join('\\n\\n').trim();\n  if (text.length < 20) continue;\n  docs.push({\n    topic_id: topic.id,\n    source_type: 'reddit_post',\n    source_url: `https://www.reddit.com${p.permalink || ''}`,\n    source_id: p.id || '',\n    title: p.title,\n    content_text: text.substring(0, 30000),\n    content_html: null,\n    author: p.author || '[deleted]',\n    score: p.score || 0,\n    metadata: JSON.stringify({\n      subreddit: p.subreddit,\n      num_comments: p.num_comments || 0,\n      created_utc: p.created_utc,\n      doc_subtype: 'post'\n    }),\n    content_hash: crypto.createHash('sha256').update(text).digest('hex')\n  });\n}\n\nreturn docs.map(d => ({ json: d }));"
+      },
+      "id": "normalize-sources",
+      "name": "Normalize & Store Sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO source_documents (topic_id, source_type, source_url, source_id, title, content_text, content_html, author, score, metadata, content_hash) VALUES ('{{ $json.topic_id }}', '{{ $json.source_type }}', '{{ ($json.source_url || '').replace(/'/g, \"''\") }}', '{{ ($json.source_id || '').replace(/'/g, \"''\") }}', '{{ ($json.title || '').replace(/'/g, \"''\") }}', '{{ $json.content_text.replace(/'/g, \"''\").substring(0, 50000) }}', {{ $json.content_html ? \"'\" + $json.content_html.replace(/'/g, \"''\").substring(0, 200000) + \"'\" : 'NULL' }}, {{ $json.author ? \"'\" + $json.author.replace(/'/g, \"''\") + \"'\" : 'NULL' }}, {{ $json.score || 'NULL' }}, '{{ $json.metadata }}', '{{ $json.content_hash }}') ON CONFLICT (topic_id, source_type, source_id) DO UPDATE SET content_text = EXCLUDED.content_text, content_hash = EXCLUDED.content_hash, fetched_at = now() RETURNING id"
+      },
+      "id": "store-source-docs",
+      "name": "Store Source Docs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1540, 0],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE topics SET status = 'ingested', updated_at = now() WHERE id = '{{ $('Mark Ingesting').first().json.id }}'"
+      },
+      "id": "mark-ingested",
+      "name": "Mark Ingested",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1760, 0],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE topics SET status = 'processing', updated_at = now() WHERE id = '{{ $('Mark Ingesting').first().json.id }}'; SELECT sd.id, sd.source_type, sd.title, sd.content_text, sd.score, sd.metadata FROM source_documents sd WHERE sd.topic_id = '{{ $('Mark Ingesting').first().json.id }}' ORDER BY sd.source_type, sd.score DESC NULLS LAST"
+      },
+      "id": "mark-processing-load",
+      "name": "Mark Processing + Load Sources",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1980, 0],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const topic = $('Mark Ingesting').first().json;\nconst sources = $('Mark Processing + Load Sources').all().map(i => i.json);\n\nconst sourceBlock = sources.map(s => {\n  return `--- ${s.source_type.toUpperCase()}: ${s.title || 'Untitled'} ---\\n${(s.content_text || '').substring(0, 8000)}`;\n}).join('\\n\\n');\n\nconst docIds = sources.map(s => s.id);\n\nreturn [{ json: { topic, sourceBlock, docIds, sourceCount: sources.length } }];"
+      },
+      "id": "prepare-context",
+      "name": "Prepare LLM Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2200, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LLM_API_URL }}/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "={{ $env.LLM_MODEL }}"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"user\", \"content\": \"You are a research summarizer for a short-form video content pipeline.\\n\\nTopic: {{ $json.topic.raw_topic }}\\n\\nSource material:\\n{{ $json.sourceBlock.substring(0, 12000) }}\\n\\nSummarize the key facts, interesting angles, and notable details from these sources. Focus on what would make compelling 20-40 second video content.\\n\\nRespond in JSON only:\\n{\\n  \\\"core_facts\\\": [\\\"fact 1\\\", \\\"fact 2\\\", ...],\\n  \\\"surprising_angles\\\": [\\\"angle 1\\\", \\\"angle 2\\\", ...],\\n  \\\"common_misconceptions\\\": [\\\"myth 1\\\", ...],\\n  \\\"best_hook_material\\\": \\\"The single most attention-grabbing element\\\",\\n  \\\"source_quality\\\": \\\"high/medium/low\\\",\\n  \\\"confidence_notes\\\": \\\"Any concerns about accuracy\\\"\\n}\"}]"
+            }
+          ]
+        }
+      },
+      "id": "llm-summarize",
+      "name": "LLM: Summarize Sources",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2420, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "LLM API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = JSON.parse($input.first().json.choices[0].message.content);\nconst prev = $('Prepare LLM Context').first().json;\nreturn [{ json: { ...prev, summary: response } }];"
+      },
+      "id": "parse-summary",
+      "name": "Parse Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2640, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO summaries (topic_id, summary_type, input_doc_ids, content, model_used, prompt_version) VALUES ('{{ $json.topic.id }}', 'source_summary', ARRAY[{{ $json.docIds.map(d => \"'\" + d + \"'\").join(',') }}]::uuid[], '{{ JSON.stringify($json.summary).replace(/'/g, \"''\") }}', '{{ $env.LLM_MODEL }}', 'v1') RETURNING id"
+      },
+      "id": "store-summary",
+      "name": "Store Summary",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [2860, 0],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LLM_API_URL }}/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "={{ $env.LLM_MODEL }}"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"user\", \"content\": \"You are a scriptwriter for faceless short-form videos about language facts.\\n\\nTopic: {{ $json.topic.raw_topic }}\\nResearch summary: {{ JSON.stringify($json.summary).substring(0, 6000) }}\\n\\nWrite a complete 20-40 second video script. Structure: Hook (stop the scroll) > Fact (2-3 sentences) > Example (concrete contrast) > CTA (natural, one sentence). Total: 40-80 words. Simple English. Globally understandable.\\n\\nAlso generate 4 scenes for video production.\\n\\nRespond in JSON only:\\n{\\n  \\\"hook\\\": \\\"\\\",\\n  \\\"fact\\\": \\\"\\\",\\n  \\\"example\\\": \\\"\\\",\\n  \\\"cta\\\": \\\"\\\",\\n  \\\"full_script\\\": \\\"\\\",\\n  \\\"word_count\\\": 0,\\n  \\\"estimated_duration_seconds\\\": 0,\\n  \\\"angle\\\": \\\"\\\",\\n  \\\"scenes\\\": [\\n    {\\n      \\\"scene_number\\\": 1,\\n      \\\"section\\\": \\\"hook\\\",\\n      \\\"duration_seconds\\\": 3,\\n      \\\"text_overlay\\\": \\\"\\\",\\n      \\\"visual_description\\\": \\\"\\\",\\n      \\\"caption_text\\\": \\\"\\\"\\n    }\\n  ],\\n  \\\"metadata\\\": {\\n    \\\"youtube_title\\\": \\\"\\\",\\n    \\\"tiktok_caption\\\": \\\"\\\",\\n    \\\"tags\\\": [],\\n    \\\"description\\\": \\\"\\\"\\n  }\\n}\"}]"
+            }
+          ]
+        }
+      },
+      "id": "llm-script",
+      "name": "LLM: Generate Script + Scenes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [3080, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "LLM API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = JSON.parse($input.first().json.choices[0].message.content);\nconst prev = $('Parse Summary').first().json;\nreturn [{ json: { ...prev, script: response, summaryId: $('Store Summary').first().json.id } }];"
+      },
+      "id": "parse-script",
+      "name": "Parse Script + Scenes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3300, 0]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO video_scripts (topic_id, summary_id, hook, fact, example, cta, full_script, word_count, estimated_duration_seconds, angle, model_used, prompt_version) VALUES ('{{ $json.topic.id }}', {{ $json.summaryId ? \"'\" + $json.summaryId + \"'\" : 'NULL' }}, '{{ $json.script.hook.replace(/'/g, \"''\") }}', '{{ $json.script.fact.replace(/'/g, \"''\") }}', '{{ $json.script.example.replace(/'/g, \"''\") }}', '{{ $json.script.cta.replace(/'/g, \"''\") }}', '{{ $json.script.full_script.replace(/'/g, \"''\") }}', {{ $json.script.word_count }}, {{ $json.script.estimated_duration_seconds }}, '{{ ($json.script.angle || '').replace(/'/g, \"''\") }}', '{{ $env.LLM_MODEL }}', 'v1') RETURNING id"
+      },
+      "id": "store-script",
+      "name": "Store Script",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [3520, 0],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO video_prompt_queue (topic_id, script_id, channel, hook, fact, example, cta, full_script, scenes, title, description, tags, youtube_title, tiktok_caption, status) VALUES ('{{ $json.topic.id }}', '{{ $('Store Script').first().json.id }}', 'shorts', '{{ $json.script.hook.replace(/'/g, \"''\") }}', '{{ $json.script.fact.replace(/'/g, \"''\") }}', '{{ $json.script.example.replace(/'/g, \"''\") }}', '{{ $json.script.cta.replace(/'/g, \"''\") }}', '{{ $json.script.full_script.replace(/'/g, \"''\") }}', '{{ JSON.stringify($json.script.scenes || []).replace(/'/g, \"''\") }}', '{{ ($json.script.metadata.youtube_title || $json.topic.raw_topic).replace(/'/g, \"''\") }}', '{{ ($json.script.metadata.description || '').replace(/'/g, \"''\") }}', ARRAY[{{ ($json.script.metadata.tags || []).map(t => \"'\" + t.replace(/'/g, \"''\") + \"'\").join(',') }}], '{{ ($json.script.metadata.youtube_title || '').replace(/'/g, \"''\") }}', '{{ ($json.script.metadata.tiktok_caption || '').replace(/'/g, \"''\") }}', 'queued') RETURNING id"
+      },
+      "id": "queue-video-prompt",
+      "name": "Queue Video Prompt",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [3740, 0],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE topics SET status = 'ready', updated_at = now() WHERE id = '{{ $json.topic.id }}'; INSERT INTO pipeline_runs (topic_id, workflow_name, stage, status, started_at, completed_at) VALUES ('{{ $json.topic.id }}', 'studio-webhook', 'full_pipeline', 'completed', now() - interval '1 minute', now())"
+      },
+      "id": "mark-ready",
+      "name": "Mark Ready + Log Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [3960, 0],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE topics SET status = 'error', error_message = 'Pipeline failed at ingestion/processing stage', updated_at = now() WHERE id = '{{ $('Mark Ingesting').first().json.id }}'"
+      },
+      "id": "mark-error",
+      "name": "Mark Error",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1540, 300],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      },
+      "notes": "Error handler: marks topic as error if pipeline fails."
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "studio/status",
+        "responseMode": "lastNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {"name": "Access-Control-Allow-Origin", "value": "*"},
+              {"name": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS"},
+              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"}
+            ]
+          }
+        }
+      },
+      "id": "wh-status",
+      "name": "Webhook: Status",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 600],
+      "webhookId": "studio-status"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT t.id, t.slug, t.raw_topic, t.status, t.created_at, vs.hook, vs.fact, vs.example, vs.cta, vs.full_script, vpq.title, vpq.description, vpq.tags, vpq.scenes, vpq.video_url, vpq.status AS queue_status FROM topics t LEFT JOIN video_scripts vs ON vs.topic_id = t.id LEFT JOIN video_prompt_queue vpq ON vpq.topic_id = t.id WHERE t.id = '{{ $json.query.id }}' ORDER BY vs.created_at DESC, vpq.created_at DESC LIMIT 1"
+      },
+      "id": "query-status",
+      "name": "Query Topic Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [220, 600],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first().json;\nif (!row || !row.id) {\n  return [{ json: { error: 'Topic not found' } }];\n}\nreturn [{\n  json: {\n    id: row.id,\n    slug: row.slug,\n    raw_topic: row.raw_topic,\n    status: row.status,\n    script: row.full_script ? {\n      hook: row.hook,\n      fact: row.fact,\n      example: row.example,\n      cta: row.cta,\n      full_script: row.full_script\n    } : null,\n    video_url: row.video_url || null,\n    title: row.title || null,\n    description: row.description || null,\n    tags: row.tags || [],\n    scenes: row.scenes ? (typeof row.scenes === 'string' ? JSON.parse(row.scenes) : row.scenes) : [],\n    created_at: row.created_at\n  }\n}];"
+      },
+      "id": "format-status",
+      "name": "Format Status Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 600]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "studio/topics",
+        "responseMode": "lastNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {"name": "Access-Control-Allow-Origin", "value": "*"},
+              {"name": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS"},
+              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"}
+            ]
+          }
+        }
+      },
+      "id": "wh-topics",
+      "name": "Webhook: Topics",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 900],
+      "webhookId": "studio-topics"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, slug, raw_topic, status, created_at FROM topics ORDER BY created_at DESC LIMIT 20"
+      },
+      "id": "query-topics",
+      "name": "Query Recent Topics",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [220, 900],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\nreturn [{ json: rows }];"
+      },
+      "id": "format-topics",
+      "name": "Format Topics Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 900]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "studio/approve",
+        "responseMode": "lastNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {"name": "Access-Control-Allow-Origin", "value": "*"},
+              {"name": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS"},
+              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"}
+            ]
+          }
+        }
+      },
+      "id": "wh-approve",
+      "name": "Webhook: Approve",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 1200],
+      "webhookId": "studio-approve"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE video_prompt_queue SET status = 'approved', title = '{{ ($json.body.title || '').replace(/'/g, \"''\") }}', description = '{{ ($json.body.description || '').replace(/'/g, \"''\") }}', tags = ARRAY[{{ ($json.body.tags || []).map(t => \"'\" + t.replace(/'/g, \"''\") + \"'\").join(',') }}] WHERE topic_id = '{{ $json.body.id }}'"
+      },
+      "id": "approve-queue",
+      "name": "Approve in Queue",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [220, 1200],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE video_prompt_queue SET status = 'published' WHERE topic_id = '{{ $json.body.id }}'; UPDATE topics SET status = 'published', updated_at = now() WHERE id = '{{ $json.body.id }}'"
+      },
+      "id": "publish-stub",
+      "name": "Publish (Stub)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [440, 1200],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      },
+      "notes": "Stub: marks as published. Real platform publishing will be added later."
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Webhook: Approve').first().json.body;\nreturn [{\n  json: {\n    success: true,\n    published_to: body.platforms || []\n  }\n}];"
+      },
+      "id": "format-approve",
+      "name": "Format Approve Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 1200]
+    },
+
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "studio/reject",
+        "responseMode": "lastNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {"name": "Access-Control-Allow-Origin", "value": "*"},
+              {"name": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS"},
+              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"}
+            ]
+          }
+        }
+      },
+      "id": "wh-reject",
+      "name": "Webhook: Reject",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 1500],
+      "webhookId": "studio-reject"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE topics SET status = 'rejected', error_message = '{{ ($json.body.reason || '').replace(/'/g, \"''\") }}', updated_at = now() WHERE id = '{{ $json.body.id }}'"
+      },
+      "id": "reject-topic",
+      "name": "Reject Topic",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [220, 1500],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: true } }];"
+      },
+      "id": "format-reject",
+      "name": "Format Reject Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 1500]
+    }
+  ],
+  "connections": {
+    "Webhook: Submit": {
+      "main": [
+        [
+          {
+            "node": "Generate Slug",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Slug": {
+      "main": [
+        [
+          {
+            "node": "Create Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Topic": {
+      "main": [
+        [
+          {
+            "node": "Respond: Submit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond: Submit": {
+      "main": [
+        [
+          {
+            "node": "Mark Ingesting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Ingesting": {
+      "main": [
+        [
+          {
+            "node": "Fetch Wikipedia Summary",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Wikipedia HTML",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Reddit (Pullpush)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Wikipedia Summary": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Store Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Wikipedia HTML": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Store Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Reddit (Pullpush)": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Store Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize & Store Sources": {
+      "main": [
+        [
+          {
+            "node": "Store Source Docs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Source Docs": {
+      "main": [
+        [
+          {
+            "node": "Mark Ingested",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Ingested": {
+      "main": [
+        [
+          {
+            "node": "Mark Processing + Load Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Processing + Load Sources": {
+      "main": [
+        [
+          {
+            "node": "Prepare LLM Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare LLM Context": {
+      "main": [
+        [
+          {
+            "node": "LLM: Summarize Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: Summarize Sources": {
+      "main": [
+        [
+          {
+            "node": "Parse Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Summary": {
+      "main": [
+        [
+          {
+            "node": "Store Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Summary": {
+      "main": [
+        [
+          {
+            "node": "LLM: Generate Script + Scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: Generate Script + Scenes": {
+      "main": [
+        [
+          {
+            "node": "Parse Script + Scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Script + Scenes": {
+      "main": [
+        [
+          {
+            "node": "Store Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Script": {
+      "main": [
+        [
+          {
+            "node": "Queue Video Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Queue Video Prompt": {
+      "main": [
+        [
+          {
+            "node": "Mark Ready + Log Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Webhook: Status": {
+      "main": [
+        [
+          {
+            "node": "Query Topic Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Topic Status": {
+      "main": [
+        [
+          {
+            "node": "Format Status Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Webhook: Topics": {
+      "main": [
+        [
+          {
+            "node": "Query Recent Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Recent Topics": {
+      "main": [
+        [
+          {
+            "node": "Format Topics Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Webhook: Approve": {
+      "main": [
+        [
+          {
+            "node": "Approve in Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve in Queue": {
+      "main": [
+        [
+          {
+            "node": "Publish (Stub)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish (Stub)": {
+      "main": [
+        [
+          {
+            "node": "Format Approve Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+
+    "Webhook: Reject": {
+      "main": [
+        [
+          {
+            "node": "Reject Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reject Topic": {
+      "main": [
+        [
+          {
+            "node": "Format Reject Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
