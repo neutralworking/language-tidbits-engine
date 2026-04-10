@@ -7,7 +7,10 @@
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -18,11 +21,14 @@
       "name": "Load Pending Topics",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [220, 0],
+      "position": [
+        220,
+        0
+      ],
       "credentials": {
         "postgres": {
-          "id": "PLACEHOLDER",
-          "name": "Content Pipeline DB"
+          "id": "1",
+          "name": "Language Tidbits Postgres"
         }
       },
       "notes": "Fetches next batch of pending topics. BATCH_SIZE env var controls how many per run (default 5)."
@@ -42,7 +48,10 @@
       "name": "Any Topics?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [440, 0]
+      "position": [
+        440,
+        0
+      ]
     },
     {
       "parameters": {
@@ -53,11 +62,14 @@
       "name": "Mark Ingesting",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [660, -100],
+      "position": [
+        660,
+        -100
+      ],
       "credentials": {
         "postgres": {
-          "id": "PLACEHOLDER",
-          "name": "Content Pipeline DB"
+          "id": "1",
+          "name": "Language Tidbits Postgres"
         }
       }
     },
@@ -77,8 +89,11 @@
       "name": "Fetch Wikipedia Summary",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [880, -200],
-      "notes": "Uses MediaWiki REST API (no auth needed). Returns extract, description, thumbnail. Rate limit: be polite, 1 req/sec. If 404, the topic may need a different Wikipedia title — log and continue."
+      "position": [
+        880,
+        -200
+      ],
+      "notes": "Uses MediaWiki REST API (no auth needed). Returns extract, description, thumbnail. Rate limit: be polite, 1 req/sec. If 404, the topic may need a different Wikipedia title \u2014 log and continue."
     },
     {
       "parameters": {
@@ -103,8 +118,11 @@
       "name": "Fetch Wikipedia HTML",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [880, -50],
-      "notes": "MediaWiki Action API — fetches full parsed HTML. Heavier call, but gives us sections and categories for richer content. Rate limit: 200 req/sec for unauthed, but be polite."
+      "position": [
+        880,
+        -50
+      ],
+      "notes": "MediaWiki Action API \u2014 fetches full parsed HTML. Heavier call, but gives us sections and categories for richer content. Rate limit: 200 req/sec for unauthed, but be polite."
     },
     {
       "parameters": {
@@ -137,7 +155,10 @@
       "name": "Search Reddit Posts",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [880, 100],
+      "position": [
+        880,
+        100
+      ],
       "notes": "Reddit public JSON API. No auth required but rate limited to ~10 req/min. User-Agent is required. Returns top 10 posts. TODO: If using OAuth app, switch to oauth.reddit.com for higher limits."
     },
     {
@@ -148,7 +169,10 @@
       "name": "Normalize Wikipedia",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1100, -120],
+      "position": [
+        1100,
+        -120
+      ],
       "notes": "Normalizes Wikipedia API responses into source_document rows. Creates both summary and full-page entries. Hashes content for deduplication."
     },
     {
@@ -159,7 +183,10 @@
       "name": "Normalize Reddit",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1100, 100],
+      "position": [
+        1100,
+        100
+      ],
       "notes": "Normalizes Reddit API results into source_document rows. Takes top 5 posts by relevance. Hashes content for deduplication."
     },
     {
@@ -170,7 +197,10 @@
       "name": "Merge Sources",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, 0]
+      "position": [
+        1320,
+        0
+      ]
     },
     {
       "parameters": {
@@ -181,14 +211,17 @@
       "name": "Store in Postgres",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [1540, 0],
+      "position": [
+        1540,
+        0
+      ],
       "credentials": {
         "postgres": {
-          "id": "PLACEHOLDER",
-          "name": "Content Pipeline DB"
+          "id": "1",
+          "name": "Language Tidbits Postgres"
         }
       },
-      "notes": "Upserts each source document. The ON CONFLICT clause handles deduplication by (topic_id, source_type, source_id). TODO: In production, use parameterized queries to avoid SQL injection — n8n's Postgres node supports $1 params in newer versions."
+      "notes": "Upserts each source document. The ON CONFLICT clause handles deduplication by (topic_id, source_type, source_id). TODO: In production, use parameterized queries to avoid SQL injection \u2014 n8n's Postgres node supports $1 params in newer versions."
     },
     {
       "parameters": {
@@ -199,11 +232,14 @@
       "name": "Mark Ingested",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [1760, 0],
+      "position": [
+        1760,
+        0
+      ],
       "credentials": {
         "postgres": {
-          "id": "PLACEHOLDER",
-          "name": "Content Pipeline DB"
+          "id": "1",
+          "name": "Language Tidbits Postgres"
         }
       }
     },
@@ -216,11 +252,14 @@
       "name": "Mark Error",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [1100, 300],
+      "position": [
+        1100,
+        300
+      ],
       "credentials": {
         "postgres": {
-          "id": "PLACEHOLDER",
-          "name": "Content Pipeline DB"
+          "id": "1",
+          "name": "Language Tidbits Postgres"
         }
       },
       "notes": "Error handler: marks topic as error if ingestion fails."
@@ -231,65 +270,164 @@
       "name": "No Topics",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [660, 100]
+      "position": [
+        660,
+        100
+      ]
     },
     {
       "parameters": {
-        "content": "## v2 Source Ingestion Workflow\n\nBatch-processes pending topics:\n1. Load pending topics from Postgres\n2. Fetch Wikipedia summary + full page via MediaWiki APIs\n3. Search Reddit for relevant posts via public JSON API\n4. Normalize all sources into source_documents table\n5. Deduplicate via content_hash and (topic, source, source_id) unique index\n\nRate limiting: add Wait nodes between batches in production.\nSee docs/content-pipeline.md for full guidance."
+        "width": 500,
+        "height": 250
       },
       "id": "sticky-note",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-200, -300],
-      "parameters": {
-        "width": 500,
-        "height": 250
-      }
+      "position": [
+        -200,
+        -300
+      ]
     }
   ],
   "connections": {
     "Manual Trigger": {
-      "main": [[{"node": "Load Pending Topics", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Load Pending Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Load Pending Topics": {
-      "main": [[{"node": "Any Topics?", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Any Topics?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Any Topics?": {
       "main": [
-        [{"node": "Mark Ingesting", "type": "main", "index": 0}],
-        [{"node": "No Topics", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Mark Ingesting",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Mark Ingesting": {
       "main": [
         [
-          {"node": "Fetch Wikipedia Summary", "type": "main", "index": 0},
-          {"node": "Fetch Wikipedia HTML", "type": "main", "index": 0},
-          {"node": "Search Reddit Posts", "type": "main", "index": 0}
+          {
+            "node": "Fetch Wikipedia Summary",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Wikipedia HTML",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search Reddit Posts",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Fetch Wikipedia Summary": {
-      "main": [[{"node": "Normalize Wikipedia", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Normalize Wikipedia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Fetch Wikipedia HTML": {
-      "main": [[{"node": "Normalize Wikipedia", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Normalize Wikipedia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Search Reddit Posts": {
-      "main": [[{"node": "Normalize Reddit", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Normalize Reddit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Normalize Wikipedia": {
-      "main": [[{"node": "Merge Sources", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Merge Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Normalize Reddit": {
-      "main": [[{"node": "Merge Sources", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Merge Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Merge Sources": {
-      "main": [[{"node": "Store in Postgres", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Store in Postgres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Store in Postgres": {
-      "main": [[{"node": "Mark Ingested", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Mark Ingested",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {

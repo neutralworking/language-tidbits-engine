@@ -7,7 +7,10 @@
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -18,22 +21,36 @@
       "name": "Load Next Ingested Topic",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [220, 0],
+      "position": [
+        220,
+        0
+      ],
       "credentials": {
-        "postgres": { "id": "PLACEHOLDER", "name": "Content Pipeline DB" }
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
       }
     },
     {
       "parameters": {
         "conditions": {
-          "boolean": [{ "value1": "={{ $json.id !== undefined }}", "value2": true }]
+          "boolean": [
+            {
+              "value1": "={{ $json.id !== undefined }}",
+              "value2": true
+            }
+          ]
         }
       },
       "id": "has-topic",
       "name": "Topic Found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [440, 0]
+      "position": [
+        440,
+        0
+      ]
     },
     {
       "parameters": {
@@ -44,9 +61,15 @@
       "name": "Load Source Documents",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [660, -100],
+      "position": [
+        660,
+        -100
+      ],
       "credentials": {
-        "postgres": { "id": "PLACEHOLDER", "name": "Content Pipeline DB" }
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
       }
     },
     {
@@ -57,7 +80,10 @@
       "name": "Prepare Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [880, -100]
+      "position": [
+        880,
+        -100
+      ]
     },
     {
       "parameters": {
@@ -68,8 +94,14 @@
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            { "name": "model", "value": "={{ $env.LLM_MODEL }}" },
-            { "name": "messages", "value": "=[{\"role\": \"user\", \"content\": \"You are a research summarizer for a short-form video content pipeline.\\n\\nTopic: {{ $json.topic.raw_topic }}\\nCategory: {{ $json.topic.category }}\\n\\nSource material:\\n{{ $json.sourceBlock.substring(0, 12000) }}\\n\\nSummarize the key facts, interesting angles, and notable details from these sources. Focus on what would make compelling 20-40 second video content.\\n\\nRespond in JSON only:\\n{\\n  \\\"core_facts\\\": [\\\"fact 1\\\", \\\"fact 2\\\", ...],\\n  \\\"surprising_angles\\\": [\\\"angle 1\\\", \\\"angle 2\\\", ...],\\n  \\\"common_misconceptions\\\": [\\\"myth 1\\\", ...],\\n  \\\"best_hook_material\\\": \\\"The single most attention-grabbing element\\\",\\n  \\\"source_quality\\\": \\\"high/medium/low\\\",\\n  \\\"confidence_notes\\\": \\\"Any concerns about accuracy\\\"\\n}\"}]" }
+            {
+              "name": "model",
+              "value": "={{ $env.LLM_MODEL }}"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"user\", \"content\": \"You are a research summarizer for a short-form video content pipeline.\\n\\nTopic: {{ $json.topic.raw_topic }}\\nCategory: {{ $json.topic.category }}\\n\\nSource material:\\n{{ $json.sourceBlock.substring(0, 12000) }}\\n\\nSummarize the key facts, interesting angles, and notable details from these sources. Focus on what would make compelling 20-40 second video content.\\n\\nRespond in JSON only:\\n{\\n  \\\"core_facts\\\": [\\\"fact 1\\\", \\\"fact 2\\\", ...],\\n  \\\"surprising_angles\\\": [\\\"angle 1\\\", \\\"angle 2\\\", ...],\\n  \\\"common_misconceptions\\\": [\\\"myth 1\\\", ...],\\n  \\\"best_hook_material\\\": \\\"The single most attention-grabbing element\\\",\\n  \\\"source_quality\\\": \\\"high/medium/low\\\",\\n  \\\"confidence_notes\\\": \\\"Any concerns about accuracy\\\"\\n}\"}]"
+            }
           ]
         }
       },
@@ -77,9 +109,15 @@
       "name": "Summarize Sources (LLM)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [1100, -200],
+      "position": [
+        1100,
+        -200
+      ],
       "credentials": {
-        "httpHeaderAuth": { "id": "PLACEHOLDER", "name": "LLM API Key" }
+        "httpHeaderAuth": {
+          "id": "PLACEHOLDER",
+          "name": "LLM API Key"
+        }
       },
       "notes": "Calls LLM with source_summarizer prompt. Full prompt template is in prompts/pipeline/source_summarizer.txt."
     },
@@ -91,7 +129,10 @@
       "name": "Parse Summary",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, -200]
+      "position": [
+        1320,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -102,9 +143,15 @@
       "name": "Store Summary",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [1540, -200],
+      "position": [
+        1540,
+        -200
+      ],
       "credentials": {
-        "postgres": { "id": "PLACEHOLDER", "name": "Content Pipeline DB" }
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
       }
     },
     {
@@ -116,8 +163,14 @@
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            { "name": "model", "value": "={{ $env.LLM_MODEL }}" },
-            { "name": "messages", "value": "=[{\"role\": \"user\", \"content\": \"You are a scriptwriter for faceless short-form videos about language facts.\\n\\nTopic: {{ $json.topic.raw_topic }}\\nResearch summary: {{ JSON.stringify($json.summary).substring(0, 6000) }}\\n\\nWrite a complete 20-40 second video script. Structure: Hook (stop the scroll) → Fact (2-3 sentences) → Example (concrete contrast) → CTA (natural, one sentence). Total: 40-80 words. Simple English. Globally understandable.\\n\\nAlso generate 4 scenes for video production.\\n\\nRespond in JSON only:\\n{\\n  \\\"hook\\\": \\\"\\\",\\n  \\\"fact\\\": \\\"\\\",\\n  \\\"example\\\": \\\"\\\",\\n  \\\"cta\\\": \\\"\\\",\\n  \\\"full_script\\\": \\\"\\\",\\n  \\\"word_count\\\": 0,\\n  \\\"estimated_duration_seconds\\\": 0,\\n  \\\"angle\\\": \\\"\\\",\\n  \\\"scenes\\\": [\\n    {\\n      \\\"scene_number\\\": 1,\\n      \\\"section\\\": \\\"hook\\\",\\n      \\\"duration_seconds\\\": 3,\\n      \\\"text_overlay\\\": \\\"\\\",\\n      \\\"visual_description\\\": \\\"\\\",\\n      \\\"caption_text\\\": \\\"\\\"\\n    }\\n  ],\\n  \\\"metadata\\\": {\\n    \\\"youtube_title\\\": \\\"\\\",\\n    \\\"tiktok_caption\\\": \\\"\\\",\\n    \\\"tags\\\": [],\\n    \\\"description\\\": \\\"\\\"\\n  }\\n}\"}]" }
+            {
+              "name": "model",
+              "value": "={{ $env.LLM_MODEL }}"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"user\", \"content\": \"You are a scriptwriter for faceless short-form videos about language facts.\\n\\nTopic: {{ $json.topic.raw_topic }}\\nResearch summary: {{ JSON.stringify($json.summary).substring(0, 6000) }}\\n\\nWrite a complete 20-40 second video script. Structure: Hook (stop the scroll) \u2192 Fact (2-3 sentences) \u2192 Example (concrete contrast) \u2192 CTA (natural, one sentence). Total: 40-80 words. Simple English. Globally understandable.\\n\\nAlso generate 4 scenes for video production.\\n\\nRespond in JSON only:\\n{\\n  \\\"hook\\\": \\\"\\\",\\n  \\\"fact\\\": \\\"\\\",\\n  \\\"example\\\": \\\"\\\",\\n  \\\"cta\\\": \\\"\\\",\\n  \\\"full_script\\\": \\\"\\\",\\n  \\\"word_count\\\": 0,\\n  \\\"estimated_duration_seconds\\\": 0,\\n  \\\"angle\\\": \\\"\\\",\\n  \\\"scenes\\\": [\\n    {\\n      \\\"scene_number\\\": 1,\\n      \\\"section\\\": \\\"hook\\\",\\n      \\\"duration_seconds\\\": 3,\\n      \\\"text_overlay\\\": \\\"\\\",\\n      \\\"visual_description\\\": \\\"\\\",\\n      \\\"caption_text\\\": \\\"\\\"\\n    }\\n  ],\\n  \\\"metadata\\\": {\\n    \\\"youtube_title\\\": \\\"\\\",\\n    \\\"tiktok_caption\\\": \\\"\\\",\\n    \\\"tags\\\": [],\\n    \\\"description\\\": \\\"\\\"\\n  }\\n}\"}]"
+            }
           ]
         }
       },
@@ -125,9 +178,15 @@
       "name": "Generate Script + Scenes (LLM)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [1760, -200],
+      "position": [
+        1760,
+        -200
+      ],
       "credentials": {
-        "httpHeaderAuth": { "id": "PLACEHOLDER", "name": "LLM API Key" }
+        "httpHeaderAuth": {
+          "id": "PLACEHOLDER",
+          "name": "LLM API Key"
+        }
       },
       "notes": "Combined script + scene generation in one LLM call to reduce latency. Full prompt templates in prompts/pipeline/script_planner.txt and scene_prompt_generator.txt."
     },
@@ -139,7 +198,10 @@
       "name": "Parse Script + Scenes",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1980, -200]
+      "position": [
+        1980,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -150,9 +212,15 @@
       "name": "Store Script",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [2200, -200],
+      "position": [
+        2200,
+        -200
+      ],
       "credentials": {
-        "postgres": { "id": "PLACEHOLDER", "name": "Content Pipeline DB" }
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
       }
     },
     {
@@ -164,9 +232,15 @@
       "name": "Queue Video Prompt",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [2420, -200],
+      "position": [
+        2420,
+        -200
+      ],
       "credentials": {
-        "postgres": { "id": "PLACEHOLDER", "name": "Content Pipeline DB" }
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
       }
     },
     {
@@ -178,9 +252,15 @@
       "name": "Mark Topic Ready",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [2640, -200],
+      "position": [
+        2640,
+        -200
+      ],
       "credentials": {
-        "postgres": { "id": "PLACEHOLDER", "name": "Content Pipeline DB" }
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
       }
     },
     {
@@ -192,9 +272,15 @@
       "name": "Log Pipeline Run",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [2860, -200],
+      "position": [
+        2860,
+        -200
+      ],
       "credentials": {
-        "postgres": { "id": "PLACEHOLDER", "name": "Content Pipeline DB" }
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
       }
     },
     {
@@ -203,62 +289,176 @@
       "name": "No Ingested Topics",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [660, 100]
+      "position": [
+        660,
+        100
+      ]
     },
     {
       "parameters": {
-        "content": "## v2 Content Processing Workflow\n\nProcesses one ingested topic at a time:\n1. Load source documents from Postgres\n2. Summarize sources via LLM (key facts, angles, hooks)\n3. Generate script + scene-by-scene video prompts via LLM\n4. Store script and prompt package in video_prompt_queue\n5. Mark topic as ready\n\nHuman review happens AFTER this workflow — check video_scripts.review_status.\nSee docs/content-pipeline.md for full guidance."
+        "width": 500,
+        "height": 200
       },
       "id": "sticky-note",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-200, -300],
-      "parameters": { "width": 500, "height": 200 }
+      "position": [
+        -200,
+        -300
+      ]
     }
   ],
   "connections": {
     "Manual Trigger": {
-      "main": [[{"node": "Load Next Ingested Topic", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Load Next Ingested Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Load Next Ingested Topic": {
-      "main": [[{"node": "Topic Found?", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Topic Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Topic Found?": {
       "main": [
-        [{"node": "Load Source Documents", "type": "main", "index": 0}],
-        [{"node": "No Ingested Topics", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Load Source Documents",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Ingested Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Load Source Documents": {
-      "main": [[{"node": "Prepare Context", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Prepare Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Prepare Context": {
-      "main": [[{"node": "Summarize Sources (LLM)", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Summarize Sources (LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Summarize Sources (LLM)": {
-      "main": [[{"node": "Parse Summary", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Parse Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse Summary": {
-      "main": [[{"node": "Store Summary", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Store Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Store Summary": {
-      "main": [[{"node": "Generate Script + Scenes (LLM)", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Generate Script + Scenes (LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Generate Script + Scenes (LLM)": {
-      "main": [[{"node": "Parse Script + Scenes", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Parse Script + Scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse Script + Scenes": {
-      "main": [[{"node": "Store Script", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Store Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Store Script": {
-      "main": [[{"node": "Queue Video Prompt", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Queue Video Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Queue Video Prompt": {
-      "main": [[{"node": "Mark Topic Ready", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Mark Topic Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Mark Topic Ready": {
-      "main": [[{"node": "Log Pipeline Run", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Log Pipeline Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
