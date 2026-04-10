@@ -57,7 +57,7 @@ services:
   # TODO: Verify image tag and GPU config for your hardware.
   # CPU-only mode works but is slower. For GPU, uncomment the deploy section.
   kokoro-tts:
-    image: ghcr.io/remsky/kokoro-fastapi:latest
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
     restart: unless-stopped
     ports:
       - "${TTS_PORT:-8880}:8880"
