@@ -60,8 +60,12 @@ def sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+USER_AGENT = "language-tidbits-engine/1.0 (content research; https://github.com/neutralworking/language-tidbits-engine)"
+
+
 def fetch_json(url: str, headers: dict = None) -> dict | None:
     req = urllib.request.Request(url)
+    req.add_header("User-Agent", USER_AGENT)
     if headers:
         for k, v in headers.items():
             req.add_header(k, v)
