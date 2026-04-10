@@ -7,7 +7,10 @@
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -29,7 +32,10 @@
       "name": "Load Next Topic",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [220, 0],
+      "position": [
+        220,
+        0
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "PLACEHOLDER",
@@ -53,7 +59,10 @@
       "name": "Topic Found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [440, 0]
+      "position": [
+        440,
+        0
+      ]
     },
     {
       "parameters": {
@@ -80,14 +89,17 @@
       "name": "Expand Topic (LLM)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [660, -100],
+      "position": [
+        660,
+        -100
+      ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "PLACEHOLDER",
+          "id": "2",
           "name": "LLM API Key"
         }
       },
-      "notes": "Calls LLM API with topic_expander prompt. Uses OpenAI-compatible /chat/completions endpoint. Full prompt is in prompts/topic_expander.txt — this node inlines a condensed version."
+      "notes": "Calls LLM API with topic_expander prompt. Uses OpenAI-compatible /chat/completions endpoint. Full prompt is in prompts/topic_expander.txt \u2014 this node inlines a condensed version."
     },
     {
       "parameters": {
@@ -97,7 +109,10 @@
       "name": "Parse Expanded Topic",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [880, -100]
+      "position": [
+        880,
+        -100
+      ]
     },
     {
       "parameters": {
@@ -124,10 +139,13 @@
       "name": "Generate Script (LLM)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [1100, -100],
+      "position": [
+        1100,
+        -100
+      ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "PLACEHOLDER",
+          "id": "2",
           "name": "LLM API Key"
         }
       },
@@ -141,7 +159,10 @@
       "name": "Parse Script",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, -100]
+      "position": [
+        1320,
+        -100
+      ]
     },
     {
       "parameters": {
@@ -168,10 +189,13 @@
       "name": "Fact Safety Check (LLM)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [1540, -100],
+      "position": [
+        1540,
+        -100
+      ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "PLACEHOLDER",
+          "id": "2",
           "name": "LLM API Key"
         }
       },
@@ -185,7 +209,10 @@
       "name": "Parse Fact Check",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1760, -100]
+      "position": [
+        1760,
+        -100
+      ]
     },
     {
       "parameters": {
@@ -202,7 +229,10 @@
       "name": "Fact Check Passed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [1980, -100],
+      "position": [
+        1980,
+        -100
+      ],
       "notes": "If fact check fails (is_safe=false or confidence=low), routes to error handler that marks topic as needs_review."
     },
     {
@@ -230,10 +260,13 @@
       "name": "Generate Metadata (LLM)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [2200, -200],
+      "position": [
+        2200,
+        -200
+      ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "PLACEHOLDER",
+          "id": "2",
           "name": "LLM API Key"
         }
       },
@@ -247,7 +280,10 @@
       "name": "Parse Metadata",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2420, -200]
+      "position": [
+        2420,
+        -200
+      ]
     },
     {
       "parameters": {
@@ -282,7 +318,10 @@
       "name": "Generate TTS Audio",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [2640, -200],
+      "position": [
+        2640,
+        -200
+      ],
       "notes": "TODO: Exact request format depends on TTS engine. Kokoro uses OpenAI-compatible endpoint. Chatterbox may differ. Response should be saved as WAV file to assets/audio/{topic_id}_voiceover.wav"
     },
     {
@@ -293,8 +332,11 @@
       "name": "Prepare Render Assets",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2860, -200],
-      "notes": "Generates SRT subtitle file content and resolves all file paths for the render step. TODO: SRT timings are estimated — improve with audio duration detection in v2."
+      "position": [
+        2860,
+        -200
+      ],
+      "notes": "Generates SRT subtitle file content and resolves all file paths for the render step. TODO: SRT timings are estimated \u2014 improve with audio duration detection in v2."
     },
     {
       "parameters": {
@@ -304,7 +346,10 @@
       "name": "Render Video (FFmpeg)",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [3080, -200],
+      "position": [
+        3080,
+        -200
+      ],
       "notes": "Calls the render-short.sh script. Ensure scripts/ has execute permissions. Working directory should be the repo root."
     },
     {
@@ -315,7 +360,10 @@
       "name": "Save Output Metadata",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3300, -200],
+      "position": [
+        3300,
+        -200
+      ],
       "notes": "Formats output metadata as CSV row. TODO: In production, append to generated_videos.csv via Write File node or update Google Sheet."
     },
     {
@@ -339,7 +387,10 @@
       "name": "Mark Ready for Review",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4,
-      "position": [3520, -200],
+      "position": [
+        3520,
+        -200
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "PLACEHOLDER",
@@ -350,13 +401,16 @@
     },
     {
       "parameters": {
-        "jsCode": "// Fact check failed — mark topic for human review\nconst topicId = $('Parse Fact Check').first().json.topic_id;\nreturn [{ json: { topic_id: topicId, status: 'needs_review', reason: 'Fact check failed or low confidence' } }];"
+        "jsCode": "// Fact check failed \u2014 mark topic for human review\nconst topicId = $('Parse Fact Check').first().json.topic_id;\nreturn [{ json: { topic_id: topicId, status: 'needs_review', reason: 'Fact check failed or low confidence' } }];"
       },
       "id": "handle-fact-check-fail",
       "name": "Handle Fact Check Failure",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2200, 100],
+      "position": [
+        2200,
+        100
+      ],
       "notes": "Routes here when fact check fails. Should update sheet status to needs_review."
     },
     {
@@ -368,22 +422,25 @@
       "name": "No Pending Topics",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [660, 100],
+      "position": [
+        660,
+        100
+      ],
       "notes": "Workflow ends here if no pending topics found."
     },
     {
       "parameters": {
-        "content": "## v1 Language Tidbits Workflow\n\nLinear pipeline: Load topic → Expand → Script → Fact Check → Metadata → TTS → Render → Save\n\nPublishing is manual in v1.\n\nSee docs/workflow-spec.md for full documentation.\n\nCredential placeholders need to be replaced after import.\nSee n8n/credentials-schema.md for required credentials."
+        "width": 400,
+        "height": 200
       },
       "id": "sticky-note-info",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-200, -300],
-      "parameters": {
-        "width": 400,
-        "height": 200
-      }
+      "position": [
+        -200,
+        -300
+      ]
     }
   ],
   "connections": {
@@ -583,5 +640,6 @@
   },
   "meta": {
     "instanceId": "placeholder"
-  }
+  },
+  "id": "YKLhSAi8bKHBe2K6"
 }
