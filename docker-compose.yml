@@ -29,6 +29,7 @@ services:
       - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
       - WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:5678}
       - GENERIC_TIMEZONE=UTC
+      - N8N_RUNNERS_TASK_TIMEOUT=600
       - LLM_API_URL=http://10.0.5.1:11434/v1
       - LLM_MODEL=mistral-small
       - TTS_API_URL=http://kokoro-tts:8880/v1/audio/speech
