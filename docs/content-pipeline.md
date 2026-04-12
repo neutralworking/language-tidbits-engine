@@ -182,6 +182,45 @@ WHERE started_at > now() - interval '24 hours'
 GROUP BY stage, status;
 ```
 
+## Studio webhook (live end-to-end pipeline)
+
+`n8n/workflows/studio-webhook.json` is the live pipeline behind the Studio page. Unlike `v2-source-ingestion` + `v2-content-processing` (which run on a schedule/trigger), the studio-webhook exposes HTTP endpoints that the Studio page calls directly:
+
+| Path | Method | Purpose |
+|------|--------|---------|
+| `studio/submit`  | POST | Create topic + kick off full pipeline |
+| `studio/status`  | GET  | Fetch a topic's status + script + `video_url` |
+| `studio/topics`  | GET  | List recent topics |
+| `studio/approve` | POST | Mark a queue entry approved + (stub) publish |
+| `studio/reject`  | POST | Mark a topic rejected |
+
+`studio/submit` runs the full pipeline in one execution:
+
+```
+Create Topic (pending)
+  → Mark Ingesting → Wikipedia summary + HTML + Reddit (parallel, soft failures)
+  → Normalize & Store Sources → Mark Ingested
+  → Mark Processing → Prepare LLM Context
+  → LLM: Summarize Sources → Parse → Store Summary
+  → LLM: Generate Script + Scenes → Parse → Store Script
+  → Queue Video Prompt (status='queued')
+  → Prepare Render Assets (builds SRT, paths, shell commands)
+  → Mark Rendering (queue.status='rendering')
+  → Run TTS       (scripts/tts.sh → assets/audio/<slug>.wav)
+  → Write SRT     (python3 → assets/captions/<slug>.srt)
+  → Render Video  (scripts/render-short.sh → data/output/<slug>.mp4)
+  → Update Queue Output (queue.status='rendered', output_path=...)
+  → Mark Ready + Log Run (topic.status='ready')
+```
+
+Any failure along the LLM, parse, TTS, SRT, or render stages routes to the **Mark Error** node via `onError: continueErrorOutput`, which marks both `topics.status` and `video_prompt_queue.status` as `error`. Topics never stay stuck at `processing`.
+
+Wikipedia/Reddit fetchers use `onError: continueRegularOutput` instead — a missing Wikipedia page is a soft failure; the Normalize code node skips the missing source via null guards.
+
+The render steps (`Run TTS`, `Write SRT File`, `Render Video`) shell out via `executeCommand` inside the n8n container, which requires `ffmpeg`, `ffprobe`, `python3`, `curl`, and DejaVu fonts to be present. `n8n/Dockerfile` extends the stock `n8nio/n8n` image with those packages; `docker-compose.yml` builds from it.
+
+The `studio/status` endpoint returns `video_url` by aliasing `video_prompt_queue.output_path AS video_url` so the Studio page's `<video>` element gets a path the moment `Update Queue Output` runs.
+
 ## Making it reusable for other channels
 
 The pipeline is channel-agnostic by design:
