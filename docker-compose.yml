@@ -63,14 +63,13 @@ services:
       - traefik.http.routers.lte-n8n.tls=true
       - traefik.http.routers.lte-n8n.tls.certresolver=letsencrypt
       - traefik.http.routers.lte-n8n.service=lte-n8n
-      # Router 2 — webhooks. Higher priority so it matches before Router 1.
-      # n8n serves webhooks at /webhook/* regardless of N8N_PATH, so we strip
-      # the /n8n prefix before forwarding.
+      # Router 2 — webhooks. Longer rule = higher default priority, so Traefik
+      # matches /n8n/webhook/ before /n8n/ automatically. n8n serves webhooks
+      # at /webhook/* regardless of N8N_PATH, so strip /n8n before forwarding.
       - traefik.http.routers.lte-n8n-webhook.rule=Host(`neutralworking.com`) && PathPrefix(`/n8n/webhook/`)
       - traefik.http.routers.lte-n8n-webhook.entrypoints=https
       - traefik.http.routers.lte-n8n-webhook.tls=true
       - traefik.http.routers.lte-n8n-webhook.tls.certresolver=letsencrypt
-      - traefik.http.routers.lte-n8n-webhook.priority=100
       - traefik.http.routers.lte-n8n-webhook.service=lte-n8n
       - traefik.http.routers.lte-n8n-webhook.middlewares=lte-n8n-stripn8n
       - traefik.http.middlewares.lte-n8n-stripn8n.stripprefix.prefixes=/n8n
