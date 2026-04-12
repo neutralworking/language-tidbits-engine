@@ -11,7 +11,11 @@
 #
 # Build is driven by docker-compose.yml (`build: ./n8n`).
 
-FROM n8nio/n8n:latest
+# Pinned to 1.108.2 because n8nio/n8n:latest has been switched to a
+# Docker Hardened Image (DHI) variant that strips `apk`, breaking the
+# `apk add` step below. Versioned tags still ship the regular Alpine
+# base. Bump deliberately after verifying a newer tag still has apk.
+FROM n8nio/n8n:1.108.2
 
 USER root
 
