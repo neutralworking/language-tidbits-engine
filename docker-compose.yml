@@ -56,10 +56,24 @@ services:
       - coolify
     labels:
       - traefik.enable=true
+      # Router 1 — UI / REST. Preserves the /n8n/ prefix so n8n (running with
+      # N8N_PATH=/n8n/) serves everything at that subpath natively.
       - traefik.http.routers.lte-n8n.rule=Host(`neutralworking.com`) && PathPrefix(`/n8n/`)
       - traefik.http.routers.lte-n8n.entrypoints=https
       - traefik.http.routers.lte-n8n.tls=true
       - traefik.http.routers.lte-n8n.tls.certresolver=letsencrypt
+      - traefik.http.routers.lte-n8n.service=lte-n8n
+      # Router 2 — webhooks. Higher priority so it matches before Router 1.
+      # n8n serves webhooks at /webhook/* regardless of N8N_PATH, so we strip
+      # the /n8n prefix before forwarding.
+      - traefik.http.routers.lte-n8n-webhook.rule=Host(`neutralworking.com`) && PathPrefix(`/n8n/webhook/`)
+      - traefik.http.routers.lte-n8n-webhook.entrypoints=https
+      - traefik.http.routers.lte-n8n-webhook.tls=true
+      - traefik.http.routers.lte-n8n-webhook.tls.certresolver=letsencrypt
+      - traefik.http.routers.lte-n8n-webhook.priority=100
+      - traefik.http.routers.lte-n8n-webhook.service=lte-n8n
+      - traefik.http.routers.lte-n8n-webhook.middlewares=lte-n8n-stripn8n
+      - traefik.http.middlewares.lte-n8n-stripn8n.stripprefix.prefixes=/n8n
       - traefik.http.services.lte-n8n.loadbalancer.server.port=5678
 
   # Kokoro TTS — local text-to-speech with OpenAI-compatible API
