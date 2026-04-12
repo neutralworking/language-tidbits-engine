@@ -136,6 +136,7 @@
       "name": "Fetch Wikipedia Summary",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
+      "onError": "continueRegularOutput",
       "position": [
         1100,
         -200
@@ -164,6 +165,7 @@
       "name": "Fetch Wikipedia HTML",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
+      "onError": "continueRegularOutput",
       "position": [
         1100,
         -50
@@ -198,6 +200,7 @@
       "name": "Fetch Reddit (Pullpush)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
+      "onError": "continueRegularOutput",
       "position": [
         1100,
         100
@@ -372,7 +375,7 @@
             },
             {
               "name": "messages",
-              "value": "=[{\"role\": \"user\", \"content\": \"You are a scriptwriter for faceless short-form videos about language facts.\\n\\nTopic: {{ $json.topic.raw_topic }}\\nResearch summary: {{ JSON.stringify($json.summary).substring(0, 6000) }}\\n\\nWrite a complete 20-40 second video script. Structure: Hook (stop the scroll) > Fact (2-3 sentences) > Example (concrete contrast) > CTA (natural, one sentence). Total: 40-80 words. Simple English. Globally understandable.\\n\\nAlso generate 4 scenes for video production.\\n\\nRespond in JSON only:\\n{\\n  \\\"hook\\\": \\\"\\\",\\n  \\\"fact\\\": \\\"\\\",\\n  \\\"example\\\": \\\"\\\",\\n  \\\"cta\\\": \\\"\\\",\\n  \\\"full_script\\\": \\\"\\\",\\n  \\\"word_count\\\": 0,\\n  \\\"estimated_duration_seconds\\\": 0,\\n  \\\"angle\\\": \\\"\\\",\\n  \\\"scenes\\\": [\\n    {\\n      \\\"scene_number\\\": 1,\\n      \\\"section\\\": \\\"hook\\\",\\n      \\\"duration_seconds\\\": 3,\\n      \\\"text_overlay\\\": \\\"\\\",\\n      \\\"visual_description\\\": \\\"\\\",\\n      \\\"caption_text\\\": \\\"\\\"\\n    }\\n  ],\\n  \\\"metadata\\\": {\\n    \\\"youtube_title\\\": \\\"\\\",\\n    \\\"tiktok_caption\\\": \\\"\\\",\\n    \\\"tags\\\": [],\\n    \\\"description\\\": \\\"\\\"\\n  }\\n}\"}]"
+              "value": "=[{\"role\": \"user\", \"content\": \"You are a scriptwriter for faceless short-form videos about language facts.\\n\\nTopic: {{ $('Parse Summary').first().json.topic.raw_topic }}\\nResearch summary: {{ JSON.stringify($('Parse Summary').first().json.summary).substring(0, 6000) }}\\n\\nWrite a complete 20-40 second video script. Structure: Hook (stop the scroll) > Fact (2-3 sentences) > Example (concrete contrast) > CTA (natural, one sentence). Total: 40-80 words. Simple English. Globally understandable.\\n\\nAlso generate 4 scenes for video production.\\n\\nRespond in JSON only:\\n{\\n  \\\"hook\\\": \\\"\\\",\\n  \\\"fact\\\": \\\"\\\",\\n  \\\"example\\\": \\\"\\\",\\n  \\\"cta\\\": \\\"\\\",\\n  \\\"full_script\\\": \\\"\\\",\\n  \\\"word_count\\\": 0,\\n  \\\"estimated_duration_seconds\\\": 0,\\n  \\\"angle\\\": \\\"\\\",\\n  \\\"scenes\\\": [\\n    {\\n      \\\"scene_number\\\": 1,\\n      \\\"section\\\": \\\"hook\\\",\\n      \\\"duration_seconds\\\": 3,\\n      \\\"text_overlay\\\": \\\"\\\",\\n      \\\"visual_description\\\": \\\"\\\",\\n      \\\"caption_text\\\": \\\"\\\"\\n    }\\n  ],\\n  \\\"metadata\\\": {\\n    \\\"youtube_title\\\": \\\"\\\",\\n    \\\"tiktok_caption\\\": \\\"\\\",\\n    \\\"tags\\\": [],\\n    \\\"description\\\": \\\"\\\"\\n  }\\n}\"}]"
             }
           ]
         }
@@ -428,7 +431,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO video_prompt_queue (topic_id, script_id, channel, hook, fact, example, cta, full_script, scenes, title, description, tags, youtube_title, tiktok_caption, status) VALUES ('{{ $json.topic.id }}', '{{ $('Store Script').first().json.id }}', 'shorts', '{{ $json.script.hook.replace(/'/g, \"''\") }}', '{{ $json.script.fact.replace(/'/g, \"''\") }}', '{{ $json.script.example.replace(/'/g, \"''\") }}', '{{ $json.script.cta.replace(/'/g, \"''\") }}', '{{ $json.script.full_script.replace(/'/g, \"''\") }}', '{{ JSON.stringify($json.script.scenes || []).replace(/'/g, \"''\") }}', '{{ ($json.script.metadata.youtube_title || $json.topic.raw_topic).replace(/'/g, \"''\") }}', '{{ ($json.script.metadata.description || '').replace(/'/g, \"''\") }}', ARRAY[{{ ($json.script.metadata.tags || []).map(t => \"'\" + t.replace(/'/g, \"''\") + \"'\").join(',') }}], '{{ ($json.script.metadata.youtube_title || '').replace(/'/g, \"''\") }}', '{{ ($json.script.metadata.tiktok_caption || '').replace(/'/g, \"''\") }}', 'queued') RETURNING id"
+        "query": "INSERT INTO video_prompt_queue (topic_id, script_id, channel, hook, fact, example, cta, full_script, scenes, title, description, tags, youtube_title, tiktok_caption, status) VALUES ('{{ $('Parse Script + Scenes').first().json.topic.id }}', '{{ $('Store Script').first().json.id }}', 'shorts', '{{ $('Parse Script + Scenes').first().json.script.hook.replace(/'/g, \"''\") }}', '{{ $('Parse Script + Scenes').first().json.script.fact.replace(/'/g, \"''\") }}', '{{ $('Parse Script + Scenes').first().json.script.example.replace(/'/g, \"''\") }}', '{{ $('Parse Script + Scenes').first().json.script.cta.replace(/'/g, \"''\") }}', '{{ $('Parse Script + Scenes').first().json.script.full_script.replace(/'/g, \"''\") }}', '{{ JSON.stringify($('Parse Script + Scenes').first().json.script.scenes || []).replace(/'/g, \"''\") }}', '{{ ($('Parse Script + Scenes').first().json.script.metadata.youtube_title || $('Parse Script + Scenes').first().json.topic.raw_topic).replace(/'/g, \"''\") }}', '{{ ($('Parse Script + Scenes').first().json.script.metadata.description || '').replace(/'/g, \"''\") }}', ARRAY[{{ ($('Parse Script + Scenes').first().json.script.metadata.tags || []).map(t => \"'\" + t.replace(/'/g, \"''\") + \"'\").join(',') }}], '{{ ($('Parse Script + Scenes').first().json.script.metadata.youtube_title || '').replace(/'/g, \"''\") }}', '{{ ($('Parse Script + Scenes').first().json.script.metadata.tiktok_caption || '').replace(/'/g, \"''\") }}', 'queued') RETURNING id"
       },
       "id": "queue-video-prompt",
       "name": "Queue Video Prompt",
@@ -448,7 +451,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE topics SET status = 'ready', updated_at = now() WHERE id = '{{ $json.topic.id }}'; INSERT INTO pipeline_runs (topic_id, workflow_name, stage, status, started_at, completed_at) VALUES ('{{ $json.topic.id }}', 'studio-webhook', 'full_pipeline', 'completed', now() - interval '1 minute', now())"
+        "query": "UPDATE topics SET status = 'ready', updated_at = now() WHERE id = '{{ $('Parse Script + Scenes').first().json.topic.id }}'; INSERT INTO pipeline_runs (topic_id, workflow_name, stage, status, started_at, completed_at) VALUES ('{{ $('Parse Script + Scenes').first().json.topic.id }}', 'studio-webhook', 'full_pipeline', 'completed', now() - interval '1 minute', now())"
       },
       "id": "mark-ready",
       "name": "Mark Ready + Log Run",
@@ -523,7 +526,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT t.id, t.slug, t.raw_topic, t.status, t.created_at, vs.hook, vs.fact, vs.example, vs.cta, vs.full_script, vpq.title, vpq.description, vpq.tags, vpq.scenes, vpq.video_url, vpq.status AS queue_status FROM topics t LEFT JOIN video_scripts vs ON vs.topic_id = t.id LEFT JOIN video_prompt_queue vpq ON vpq.topic_id = t.id WHERE t.id = '{{ $json.query.id }}' ORDER BY vs.created_at DESC, vpq.created_at DESC LIMIT 1"
+        "query": "SELECT t.id, t.slug, t.raw_topic, t.status, t.created_at, vs.hook, vs.fact, vs.example, vs.cta, vs.full_script, vpq.title, vpq.description, vpq.tags, vpq.scenes, vpq.output_path AS video_url, vpq.status AS queue_status FROM topics t LEFT JOIN video_scripts vs ON vs.topic_id = t.id LEFT JOIN video_prompt_queue vpq ON vpq.topic_id = t.id WHERE t.id = '{{ $json.query.id }}' ORDER BY vs.created_at DESC, vpq.created_at DESC LIMIT 1"
       },
       "id": "query-status",
       "name": "Query Topic Status",
