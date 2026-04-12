@@ -13,7 +13,13 @@
 
 services:
   n8n:
-    image: n8nio/n8n:latest
+    # Custom image that adds ffmpeg, python3, curl, and DejaVu fonts so the
+    # studio-webhook render pipeline (TTS + SRT write + FFmpeg render) can run
+    # inside the n8n container. See n8n/Dockerfile.
+    build:
+      context: ./n8n
+      dockerfile: Dockerfile
+    image: language-tidbits-engine-n8n:latest
     restart: unless-stopped
     ports:
       - "${N8N_PORT:-5678}:5678"

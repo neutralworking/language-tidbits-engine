@@ -169,7 +169,7 @@
             },
             {
               "name": "messages",
-              "value": "=[{\"role\": \"user\", \"content\": \"You are a scriptwriter for faceless short-form videos about language facts.\\n\\nTopic: {{ $json.topic.raw_topic }}\\nResearch summary: {{ JSON.stringify($json.summary).substring(0, 6000) }}\\n\\nWrite a complete 20-40 second video script. Structure: Hook (stop the scroll) \u2192 Fact (2-3 sentences) \u2192 Example (concrete contrast) \u2192 CTA (natural, one sentence). Total: 40-80 words. Simple English. Globally understandable.\\n\\nAlso generate 4 scenes for video production.\\n\\nRespond in JSON only:\\n{\\n  \\\"hook\\\": \\\"\\\",\\n  \\\"fact\\\": \\\"\\\",\\n  \\\"example\\\": \\\"\\\",\\n  \\\"cta\\\": \\\"\\\",\\n  \\\"full_script\\\": \\\"\\\",\\n  \\\"word_count\\\": 0,\\n  \\\"estimated_duration_seconds\\\": 0,\\n  \\\"angle\\\": \\\"\\\",\\n  \\\"scenes\\\": [\\n    {\\n      \\\"scene_number\\\": 1,\\n      \\\"section\\\": \\\"hook\\\",\\n      \\\"duration_seconds\\\": 3,\\n      \\\"text_overlay\\\": \\\"\\\",\\n      \\\"visual_description\\\": \\\"\\\",\\n      \\\"caption_text\\\": \\\"\\\"\\n    }\\n  ],\\n  \\\"metadata\\\": {\\n    \\\"youtube_title\\\": \\\"\\\",\\n    \\\"tiktok_caption\\\": \\\"\\\",\\n    \\\"tags\\\": [],\\n    \\\"description\\\": \\\"\\\"\\n  }\\n}\"}]"
+              "value": "=[{\"role\": \"user\", \"content\": \"You are a scriptwriter for faceless short-form videos about language facts.\\n\\nTopic: {{ $('Parse Summary').first().json.topic.raw_topic }}\\nResearch summary: {{ JSON.stringify($('Parse Summary').first().json.summary).substring(0, 6000) }}\\n\\nWrite a complete 20-40 second video script. Structure: Hook (stop the scroll) \u2192 Fact (2-3 sentences) \u2192 Example (concrete contrast) \u2192 CTA (natural, one sentence). Total: 40-80 words. Simple English. Globally understandable.\\n\\nAlso generate 4 scenes for video production.\\n\\nRespond in JSON only:\\n{\\n  \\\"hook\\\": \\\"\\\",\\n  \\\"fact\\\": \\\"\\\",\\n  \\\"example\\\": \\\"\\\",\\n  \\\"cta\\\": \\\"\\\",\\n  \\\"full_script\\\": \\\"\\\",\\n  \\\"word_count\\\": 0,\\n  \\\"estimated_duration_seconds\\\": 0,\\n  \\\"angle\\\": \\\"\\\",\\n  \\\"scenes\\\": [\\n    {\\n      \\\"scene_number\\\": 1,\\n      \\\"section\\\": \\\"hook\\\",\\n      \\\"duration_seconds\\\": 3,\\n      \\\"text_overlay\\\": \\\"\\\",\\n      \\\"visual_description\\\": \\\"\\\",\\n      \\\"caption_text\\\": \\\"\\\"\\n    }\\n  ],\\n  \\\"metadata\\\": {\\n    \\\"youtube_title\\\": \\\"\\\",\\n    \\\"tiktok_caption\\\": \\\"\\\",\\n    \\\"tags\\\": [],\\n    \\\"description\\\": \\\"\\\"\\n  }\\n}\"}]"
             }
           ]
         }
@@ -226,7 +226,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO video_prompt_queue (topic_id, script_id, channel, hook, fact, example, cta, full_script, scenes, title, description, tags, youtube_title, tiktok_caption, status) VALUES ('{{ $json.topic.id }}', '{{ $('Store Script').first().json.id }}', '{{ $json.topic.channel }}', '{{ $json.script.hook.replace(/'/g, \"''\") }}', '{{ $json.script.fact.replace(/'/g, \"''\") }}', '{{ $json.script.example.replace(/'/g, \"''\") }}', '{{ $json.script.cta.replace(/'/g, \"''\") }}', '{{ $json.script.full_script.replace(/'/g, \"''\") }}', '{{ JSON.stringify($json.script.scenes || []).replace(/'/g, \"''\") }}', '{{ ($json.script.metadata.youtube_title || $json.topic.raw_topic).replace(/'/g, \"''\") }}', '{{ ($json.script.metadata.description || '').replace(/'/g, \"''\") }}', ARRAY[{{ ($json.script.metadata.tags || []).map(t => \"'\" + t.replace(/'/g, \"''\") + \"'\").join(',') }}], '{{ ($json.script.metadata.youtube_title || '').replace(/'/g, \"''\") }}', '{{ ($json.script.metadata.tiktok_caption || '').replace(/'/g, \"''\") }}', 'queued')"
+        "query": "INSERT INTO video_prompt_queue (topic_id, script_id, channel, hook, fact, example, cta, full_script, scenes, title, description, tags, youtube_title, tiktok_caption, status) VALUES ('{{ $('Parse Script + Scenes').first().json.topic.id }}', '{{ $('Store Script').first().json.id }}', '{{ $('Parse Script + Scenes').first().json.topic.channel }}', '{{ $('Parse Script + Scenes').first().json.script.hook.replace(/'/g, \"''\") }}', '{{ $('Parse Script + Scenes').first().json.script.fact.replace(/'/g, \"''\") }}', '{{ $('Parse Script + Scenes').first().json.script.example.replace(/'/g, \"''\") }}', '{{ $('Parse Script + Scenes').first().json.script.cta.replace(/'/g, \"''\") }}', '{{ $('Parse Script + Scenes').first().json.script.full_script.replace(/'/g, \"''\") }}', '{{ JSON.stringify($('Parse Script + Scenes').first().json.script.scenes || []).replace(/'/g, \"''\") }}', '{{ ($('Parse Script + Scenes').first().json.script.metadata.youtube_title || $('Parse Script + Scenes').first().json.topic.raw_topic).replace(/'/g, \"''\") }}', '{{ ($('Parse Script + Scenes').first().json.script.metadata.description || '').replace(/'/g, \"''\") }}', ARRAY[{{ ($('Parse Script + Scenes').first().json.script.metadata.tags || []).map(t => \"'\" + t.replace(/'/g, \"''\") + \"'\").join(',') }}], '{{ ($('Parse Script + Scenes').first().json.script.metadata.youtube_title || '').replace(/'/g, \"''\") }}', '{{ ($('Parse Script + Scenes').first().json.script.metadata.tiktok_caption || '').replace(/'/g, \"''\") }}', 'queued')"
       },
       "id": "queue-prompt",
       "name": "Queue Video Prompt",
@@ -246,7 +246,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE topics SET status = 'ready', updated_at = now() WHERE id = '{{ $json.topic.id }}'"
+        "query": "UPDATE topics SET status = 'ready', updated_at = now() WHERE id = '{{ $('Parse Script + Scenes').first().json.topic.id }}'"
       },
       "id": "mark-ready",
       "name": "Mark Topic Ready",
@@ -266,7 +266,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO pipeline_runs (topic_id, workflow_name, stage, status, started_at, completed_at) VALUES ('{{ $json.topic.id }}', 'v2-content-processing', 'full_pipeline', 'completed', now() - interval '1 minute', now())"
+        "query": "INSERT INTO pipeline_runs (topic_id, workflow_name, stage, status, started_at, completed_at) VALUES ('{{ $('Parse Script + Scenes').first().json.topic.id }}', 'v2-content-processing', 'full_pipeline', 'completed', now() - interval '1 minute', now())"
       },
       "id": "log-pipeline-run",
       "name": "Log Pipeline Run",

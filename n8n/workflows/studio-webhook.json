@@ -316,6 +316,7 @@
       "name": "LLM: Summarize Sources",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
+      "onError": "continueErrorOutput",
       "position": [
         2420,
         0
@@ -335,6 +336,7 @@
       "name": "Parse Summary",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
+      "onError": "continueErrorOutput",
       "position": [
         2640,
         0
@@ -384,6 +386,7 @@
       "name": "LLM: Generate Script + Scenes",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
+      "onError": "continueErrorOutput",
       "position": [
         3080,
         0
@@ -403,6 +406,7 @@
       "name": "Parse Script + Scenes",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
+      "onError": "continueErrorOutput",
       "position": [
         3300,
         0
@@ -450,15 +454,95 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "UPDATE topics SET status = 'ready', updated_at = now() WHERE id = '{{ $('Parse Script + Scenes').first().json.topic.id }}'; INSERT INTO pipeline_runs (topic_id, workflow_name, stage, status, started_at, completed_at) VALUES ('{{ $('Parse Script + Scenes').first().json.topic.id }}', 'studio-webhook', 'full_pipeline', 'completed', now() - interval '1 minute', now())"
+        "jsCode": "const topic = $('Parse Script + Scenes').first().json.topic;\nconst script = $('Parse Script + Scenes').first().json.script;\nconst slug = (topic.slug || String(topic.id)).replace(/[^a-zA-Z0-9_-]/g, '-').substring(0, 60);\n\nconst assetsRoot = '/home/node/assets';\nconst dataRoot = '/home/node/data';\nconst audioPath = `${assetsRoot}/audio/${slug}.wav`;\nconst captionsPath = `${assetsRoot}/captions/${slug}.srt`;\nconst outputPath = `${dataRoot}/output/${slug}.mp4`;\nconst backgroundPath = `${assetsRoot}/backgrounds/default.png`;\n\nconst rawTitle = (script.metadata && script.metadata.youtube_title) ? script.metadata.youtube_title : topic.raw_topic;\nconst titleText = rawTitle.replace(' #shorts', '').substring(0, 80);\n\n// Build SRT from hook/fact/example/cta with estimated timings (v2 will use audio duration)\nconst lines = [\n  { text: script.hook || '', start: 0, end: 4 },\n  { text: script.fact || '', start: 4, end: 18 },\n  { text: script.example || '', start: 18, end: 28 },\n  { text: script.cta || '', start: 28, end: 33 }\n];\nconst ts = s => {\n  const h = String(Math.floor(s / 3600)).padStart(2, '0');\n  const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');\n  const sec = String(s % 60).padStart(2, '0');\n  return `${h}:${m}:${sec},000`;\n};\nlet srt = '';\nlines.forEach((line, i) => {\n  srt += `${i + 1}\\n${ts(line.start)} --> ${ts(line.end)}\\n${line.text}\\n\\n`;\n});\nconst srtB64 = Buffer.from(srt, 'utf8').toString('base64');\n\n// Shell-safe single-quote wrapping (POSIX: close, escape, reopen)\nconst sh = s => \"'\" + String(s).replace(/'/g, \"'\\\\''\") + \"'\";\n\nconst ttsCommand = `cd /home/node && mkdir -p assets/audio && ./scripts/tts.sh --text ${sh(script.full_script || '')} --output ${audioPath}`;\nconst srtCommand = `mkdir -p ${assetsRoot}/captions && python3 -c \"import base64; open('${captionsPath}', 'wb').write(base64.b64decode('${srtB64}'))\"`;\nconst renderCommand = `cd /home/node && mkdir -p data/output && ./scripts/render-short.sh --background ${backgroundPath} --audio ${audioPath} --subtitles ${captionsPath} --output ${outputPath} --title ${sh(titleText)}`;\n\nreturn [{ json: {\n  topic_id: topic.id,\n  slug,\n  audio_path: audioPath,\n  captions_path: captionsPath,\n  output_path: outputPath,\n  background_path: backgroundPath,\n  title_text: titleText,\n  full_script: script.full_script || '',\n  tts_command: ttsCommand,\n  srt_command: srtCommand,\n  render_command: renderCommand\n} }];"
       },
-      "id": "mark-ready",
-      "name": "Mark Ready + Log Run",
+      "id": "prepare-render",
+      "name": "Prepare Render Assets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueErrorOutput",
+      "position": [
+        3960,
+        0
+      ],
+      "notes": "Builds SRT file (base64-encoded for safe shell transport), audio/caption/output paths, and pre-built shell-safe commands for the TTS, SRT-write, and render steps. Paths use /home/node/* which is where docker-compose mounts ./assets and ./data inside the n8n container."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE video_prompt_queue SET status = 'rendering', updated_at = now() WHERE topic_id = '{{ $('Prepare Render Assets').first().json.topic_id }}'"
+      },
+      "id": "mark-rendering",
+      "name": "Mark Rendering",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
       "position": [
-        3960,
+        4180,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "={{ $('Prepare Render Assets').first().json.tts_command }}"
+      },
+      "id": "run-tts",
+      "name": "Run TTS",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "onError": "continueErrorOutput",
+      "position": [
+        4400,
+        0
+      ],
+      "notes": "Runs scripts/tts.sh inside the n8n container. Requires curl + ffprobe (for duration reporting) in the n8n image — see n8n/Dockerfile."
+    },
+    {
+      "parameters": {
+        "command": "={{ $('Prepare Render Assets').first().json.srt_command }}"
+      },
+      "id": "write-srt",
+      "name": "Write SRT File",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "onError": "continueErrorOutput",
+      "position": [
+        4620,
+        0
+      ],
+      "notes": "Decodes the base64 SRT built by Prepare Render Assets and writes it to the captions directory. python3 must be available in the n8n container."
+    },
+    {
+      "parameters": {
+        "command": "={{ $('Prepare Render Assets').first().json.render_command }}"
+      },
+      "id": "render-video",
+      "name": "Render Video",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "onError": "continueErrorOutput",
+      "position": [
+        4840,
+        0
+      ],
+      "notes": "Runs scripts/render-short.sh to assemble the final 9:16 MP4. Requires ffmpeg + ffprobe + DejaVu fonts in the n8n container — see n8n/Dockerfile."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE video_prompt_queue SET status = 'rendered', output_path = '{{ $('Prepare Render Assets').first().json.output_path }}', updated_at = now() WHERE topic_id = '{{ $('Prepare Render Assets').first().json.topic_id }}'"
+      },
+      "id": "update-queue-output",
+      "name": "Update Queue Output",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        5060,
         0
       ],
       "credentials": {
@@ -471,7 +555,27 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE topics SET status = 'error', error_message = 'Pipeline failed at ingestion/processing stage', updated_at = now() WHERE id = '{{ $('Mark Ingesting').first().json.id }}'"
+        "query": "UPDATE topics SET status = 'ready', updated_at = now() WHERE id = '{{ $('Parse Script + Scenes').first().json.topic.id }}'; INSERT INTO pipeline_runs (topic_id, workflow_name, stage, status, started_at, completed_at) VALUES ('{{ $('Parse Script + Scenes').first().json.topic.id }}', 'studio-webhook', 'full_pipeline', 'completed', now() - interval '1 minute', now())"
+      },
+      "id": "mark-ready",
+      "name": "Mark Ready + Log Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        5280,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "Language Tidbits Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE topics SET status = 'error', error_message = 'Pipeline failed at ingestion/processing stage', updated_at = now() WHERE id = '{{ $('Mark Ingesting').first().json.id }}'; UPDATE video_prompt_queue SET status = 'error', error_message = 'Pipeline failed', updated_at = now() WHERE topic_id = '{{ $('Mark Ingesting').first().json.id }}'"
       },
       "id": "mark-error",
       "name": "Mark Error",
@@ -941,6 +1045,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -949,6 +1060,13 @@
         [
           {
             "node": "Store Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
             "type": "main",
             "index": 0
           }
@@ -974,6 +1092,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -982,6 +1107,13 @@
         [
           {
             "node": "Store Script",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
             "type": "main",
             "index": 0
           }
@@ -1000,6 +1132,100 @@
       ]
     },
     "Queue Video Prompt": {
+      "main": [
+        [
+          {
+            "node": "Prepare Render Assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Render Assets": {
+      "main": [
+        [
+          {
+            "node": "Mark Rendering",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Rendering": {
+      "main": [
+        [
+          {
+            "node": "Run TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run TTS": {
+      "main": [
+        [
+          {
+            "node": "Write SRT File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write SRT File": {
+      "main": [
+        [
+          {
+            "node": "Render Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render Video": {
+      "main": [
+        [
+          {
+            "node": "Update Queue Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Queue Output": {
       "main": [
         [
           {
