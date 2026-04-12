@@ -60,11 +60,13 @@ services:
       - traefik.http.routers.lte-n8n.entrypoints=https
       - traefik.http.routers.lte-n8n.tls=true
       - traefik.http.routers.lte-n8n.tls.certresolver=letsencrypt
+      - traefik.http.routers.lte-n8n.priority=500
       - traefik.http.routers.lte-n8n.service=lte-n8n
       - traefik.http.routers.lte-n8n-wh.rule=Host(`neutralworking.com`) && PathPrefix(`/n8n/webhook/`)
       - traefik.http.routers.lte-n8n-wh.entrypoints=https
       - traefik.http.routers.lte-n8n-wh.tls=true
       - traefik.http.routers.lte-n8n-wh.tls.certresolver=letsencrypt
+      - traefik.http.routers.lte-n8n-wh.priority=1000
       - traefik.http.routers.lte-n8n-wh.service=lte-n8n
       - traefik.http.routers.lte-n8n-wh.middlewares=lten8nstrip@docker
       - traefik.http.middlewares.lten8nstrip.stripprefix.prefixes=/n8n
