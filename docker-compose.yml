@@ -66,6 +66,8 @@ services:
       - traefik.http.routers.lte-n8n-wh.tls=true
       - traefik.http.routers.lte-n8n-wh.tls.certresolver=letsencrypt
       - traefik.http.routers.lte-n8n-wh.service=lte-n8n
+      - traefik.http.routers.lte-n8n-wh.middlewares=lten8nstrip@docker
+      - traefik.http.middlewares.lten8nstrip.stripprefix.prefixes=/n8n
       - traefik.http.services.lte-n8n.loadbalancer.server.port=5678
 
   # Kokoro TTS — local text-to-speech with OpenAI-compatible API
