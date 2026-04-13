@@ -1,95 +1,41 @@
 # docker-compose.yml — language-tidbits-engine services
 #
-# n8n (orchestration) and Kokoro TTS (voiceover).
-# Postgres is managed separately via Coolify.
+# Only Kokoro TTS lives here now. n8n was extracted on 2026-04-13 into the
+# neutralworking/n8n-platform repo and runs from /opt/n8n-platform on the VPS.
+# It reaches this compose's kokoro-tts via the shared external network
+# `content-mesh`.
 #
 # Usage:
-#   docker compose up -d          # start services
-#   docker compose logs -f n8n    # watch n8n logs
-#   docker compose down           # stop services
+#   docker compose up -d                # start kokoro-tts
+#   docker compose logs -f kokoro-tts   # watch logs
+#   docker compose down                 # stop
 #
-# n8n UI (production):   https://neutralworking.com/n8n/
-# Webhooks:              https://neutralworking.com/n8n/webhook/…
-# TTS API:               http://localhost:8880 (internal, not exposed publicly)
+# TTS API: http://localhost:8880 (loopback only — not exposed publicly)
 #
-# Public HTTPS is terminated by Coolify's Traefik proxy (container
-# `coolify-proxy`) using the labels below. n8n is attached to the external
-# `coolify` network so Traefik can reach it. Port 5678 is bound to loopback
-# only so direct HTTP access is impossible from the internet.
+# The n8n-platform n8n container resolves `kokoro-tts` over the content-mesh
+# network, so this service name must remain stable.
 
 services:
-  n8n:
-    # Custom image that adds ffmpeg, python3, curl, and DejaVu fonts so the
-    # studio-webhook render pipeline (TTS + SRT write + FFmpeg render) can run
-    # inside the n8n container. See n8n/Dockerfile.
-    build:
-      context: ./n8n
-      dockerfile: Dockerfile
-    image: language-tidbits-engine-n8n:latest
-    restart: unless-stopped
-    ports:
-      # Loopback only — public access is via Traefik over HTTPS.
-      - "127.0.0.1:${N8N_PORT:-5678}:5678"
-    environment:
-      # Served at https://neutralworking.com/n8n/ via Traefik. N8N_PATH makes
-      # n8n generate URLs and serve its UI at the /n8n/ subpath, so no
-      # stripprefix middleware is needed.
-      - N8N_HOST=neutralworking.com
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=https
-      - N8N_PATH=/n8n/
-      - WEBHOOK_URL=https://neutralworking.com/n8n/
-      - GENERIC_TIMEZONE=UTC
-      - N8N_RUNNERS_TASK_TIMEOUT=600
-      - LLM_API_URL=http://10.0.5.1:11434/v1
-      - LLM_MODEL=mistral-small
-      - TTS_API_URL=http://kokoro-tts:8880/v1/audio/speech
-    volumes:
-      - n8n_data:/home/node/.n8n
-      - ./prompts:/home/node/prompts:ro
-      - ./scripts:/home/node/scripts:ro
-      - ./n8n/workflows:/home/node/workflows:ro
-      - ./assets:/home/node/assets
-      - ./data:/home/node/data
-    networks:
-      - default
-      - coolify
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.lte-n8n.rule=Host(`neutralworking.com`) && PathPrefix(`/n8n/`)
-      - traefik.http.routers.lte-n8n.entrypoints=https
-      - traefik.http.routers.lte-n8n.tls=true
-      - traefik.http.routers.lte-n8n.tls.certresolver=letsencrypt
-      - traefik.http.routers.lte-n8n.priority=500
-      - traefik.http.routers.lte-n8n.service=lte-n8n
-      - traefik.http.routers.lte-n8n-wh.rule=Host(`neutralworking.com`) && PathPrefix(`/n8n/webhook/`)
-      - traefik.http.routers.lte-n8n-wh.entrypoints=https
-      - traefik.http.routers.lte-n8n-wh.tls=true
-      - traefik.http.routers.lte-n8n-wh.tls.certresolver=letsencrypt
-      - traefik.http.routers.lte-n8n-wh.priority=1000
-      - traefik.http.routers.lte-n8n-wh.service=lte-n8n
-      - traefik.http.routers.lte-n8n-wh.middlewares=lten8nstrip@docker
-      - traefik.http.middlewares.lten8nstrip.stripprefix.prefixes=/n8n
-      - traefik.http.services.lte-n8n.loadbalancer.server.port=5678
-
   # Kokoro TTS — local text-to-speech with OpenAI-compatible API
   # https://github.com/remsky/Kokoro-FastAPI
   kokoro-tts:
     image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
     restart: unless-stopped
     ports:
-      # Loopback only — only n8n (same compose network) needs this.
+      # Loopback only — reachable from n8n-platform via content-mesh DNS.
       - "127.0.0.1:${TTS_PORT:-8880}:8880"
     environment:
       - DEVICE=cpu
     volumes:
       - kokoro_models:/app/models
+    networks:
+      - default
+      - content-mesh
 
 networks:
   default:
-  coolify:
+  content-mesh:
     external: true
 
 volumes:
-  n8n_data:
   kokoro_models:
